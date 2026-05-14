@@ -37,7 +37,7 @@ AWS uses a keypair for authenticating via `ssh` to the coordinator node. If you 
 - `S3Bucket`: name of the bucket where your deployment scripts are.
 - `AccessToken`: the EDB access token for downloading EDB software.
 - `AMI`: The existing AWS AMI ID that is valid for your region. The default is the AMI for Rocky Linux 9 and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack and ideally, use Rocky Linux 9 as that has been tested.
-- `DatabaseName`: name of the default (PGDATABASE) name created
+- `DatabaseName`: name of the default database name (PGDATABASE) created
 - `SegmentsPerDisk`: the number of segment processes per data volume. Typically 1:1 works best.
 - `InternetAccess`: if true, the coordinator node will have access to the Internet.
 - `SSHCIDER`: make this as restrive as possible. 0.0.0.0/0 will be removed automatically in EDB's accounts. Only used when InternetAccess is true and only applies to the coordinator node.
