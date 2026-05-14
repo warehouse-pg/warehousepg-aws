@@ -2,3 +2,42 @@
 
 ## Overview
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation. 
+
+## Optional: Steps to modify and upload deployment scripts
+1. Create a bucket in the Region you are wishing to deploy.
+2. Log into AWS via Okta and click on Access Keys.
+![Access Keys](/images/access_keys.png)
+3. Open a terminal and run `aws configure`.
+4. On the Access Keys page, copy and paste the access key id, secret access key, and the session token in the terminal window. These are temporary credentials so these will expire after a few hours. Specify the Region and you can use any format you want for the output.
+![Credentials](/images/credentials.png)
+![AWS Configure](/images/aws_configure.png)
+5. Change to the UserData directory, change the bucket location to your new bucket, run `./upload.sh`.
+
+## CloudFormation Stack
+1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_cft.json` in this repo.
+![CFT1](/images/cft1.png)
+2. Fill out the parameters
+- Stack name: this is mandatory.
+- S3Bucket: name of the bucket where your deployment scripts are.
+- AccessToken: the EDB access token for downloading EDB software.
+- DatabaseName: name of the default (PGDATABASE) name created
+- SegmentsPerDisk: the number of segment processes per data volume. Typically 1:1 works best.
+- InternetAccess: if true, the coordinator node will have access to the Internet.
+- SSHCIDER: make this as restrive as possible. 0.0.0.0/0 will be removed automatically in EDB's accounts. Only used when InternetAccess is true and only applies to the coordinator node.
+- VPC: existing VPC to deploy in.
+- PrivateSubnet: Private subnet where the compute nodes will be deployed.
+- PublicSubnet: Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing Private subnet here if you don't wish to allow Internet access to the coordinator node.
+- DataDisks: the number of data volumes per compute node. 
+- DiskEncrypted: specifies to use AWS encryption on the data volumes.
+- DiskType: specifies the disk type. SC1 is ideal for testing and ST1 for production. For extremely busy workloads, GP3 can be used but it costs the most.
+- KeyPair: specifies the existing KeyPair for ssh access to the coordinator node.
+- TimeZone: sets the TZ on all nodes.
+- CoordinatorNodeType: specifies InstanceType in AWS. Currently tested with r8i series.
+- CoordinatorDiskSize: the data volume on the coordinator. 
+- SegmentNodeType: specifies the IntancesType in AWS. Currently tested with r8i series.
+- SegmentDiskSize: specifies the data volume size on each segment node. Remember you can also specify the number of data volumes per node.
+- SegmentNodeCount: 0 to 48 nodes in increments of 2 nodes can be deployed. Setting 0 means it will be a single node and the coordinator and segments will reside there. Setting 2 or larger will enable mirroring and deploy on all nodes.
+
+## Debugging 
+1. You can specify to preserve resources in the Stack so that if it fails, the nodes will be preserved.
+2. `ssh` to the coordinator node and `sudo bash`. Then `tail -f /var/log/cloud-init-output.log` to watch the progress of the deployment.
