@@ -304,18 +304,6 @@
 				"SourceSecurityGroupId": { "Ref": "PrivateSecurityGroup" }
 			}
 		},
-		"CoordinatorNode": {
-			"Type": "AWS::EC2::Instance",
-			"Properties": {
-				"LaunchTemplate": {
-					"LaunchTemplateId": { "Ref": "CoordinatorNodeLaunchTemplate" },
-					"Version": "1"
-				},
-				"Tags": [
-					{ "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "cdw" ] ] } }
-				]
-			}
-		},
 		"CoordinatorNodeLaunchTemplate": { 
 			"Type":"AWS::EC2::LaunchTemplate", 
 			"Properties" : {
@@ -383,30 +371,15 @@
 				}
 			}
 		},
-		"SegmentNodes": {
-			"Type": "AWS::EC2::EC2Fleet",
-			"Condition": "MultiNodes",
+		"CoordinatorNode": {
+			"Type": "AWS::EC2::Instance",
 			"Properties": {
-				"Type": "instant",
-				"TargetCapacitySpecification": {
-					"TotalTargetCapacity": { "Ref": "SegmentNodeCount" },
-					"DefaultTargetCapacityType": "on-demand"
+				"LaunchTemplate": {
+					"LaunchTemplateId": { "Ref": "CoordinatorNodeLaunchTemplate" },
+					"Version": "1"
 				},
-				"LaunchTemplateConfigs": [
-					{
-						"LaunchTemplateSpecification": {
-							"LaunchTemplateId": { "Ref": "SegmentNodesLaunchTemplate" },
-							"Version": "1"
-						}
-					}
-				],
-				"TagSpecifications": [
-					{
-						"ResourceType": "instance",
-						"Tags": [
-							{ "Key": "Name", "Value": { "Ref": "AWS::StackName" } }
-						]
-					}
+				"Tags": [
+					{ "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "cdw" ] ] } }
 				]
 			}
 		},
@@ -464,6 +437,33 @@
 						}
 					}
 				}
+			}
+		},
+		"SegmentNodes": {
+			"Type": "AWS::EC2::EC2Fleet",
+			"Condition": "MultiNodes",
+			"Properties": {
+				"Type": "instant",
+				"TargetCapacitySpecification": {
+					"TotalTargetCapacity": { "Ref": "SegmentNodeCount" },
+					"DefaultTargetCapacityType": "on-demand"
+				},
+				"LaunchTemplateConfigs": [
+					{
+						"LaunchTemplateSpecification": {
+							"LaunchTemplateId": { "Ref": "SegmentNodesLaunchTemplate" },
+							"Version": "1"
+						}
+					}
+				],
+				"TagSpecifications": [
+					{
+						"ResourceType": "instance",
+						"Tags": [
+							{ "Key": "Name", "Value": { "Ref": "AWS::StackName" } }
+						]
+					}
+				]
 			}
 		}
 	}
