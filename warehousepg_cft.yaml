@@ -310,42 +310,43 @@ Parameters:
 
 Mappings:
   ClusterCountMapping:
-    '0':  { ClusterCount: '1',  CreationTimeout: PT20M,  Timeout: '1500' }
-    '2':  { ClusterCount: '3',  CreationTimeout: PT20M,  Timeout: '1500' }
-    '4':  { ClusterCount: '5',  CreationTimeout: PT25M,  Timeout: '1800' }
-    '6':  { ClusterCount: '7',  CreationTimeout: PT30M,  Timeout: '2100' }
-    '8':  { ClusterCount: '9',  CreationTimeout: PT30M,  Timeout: '2100' }
-    '10': { ClusterCount: '11', CreationTimeout: PT45M,  Timeout: '3000' }
-    '12': { ClusterCount: '13', CreationTimeout: PT45M,  Timeout: '3000' }
-    '14': { ClusterCount: '15', CreationTimeout: PT45M,  Timeout: '3000' }
-    '16': { ClusterCount: '17', CreationTimeout: PT60M,  Timeout: '3900' }
-    '18': { ClusterCount: '19', CreationTimeout: PT60M,  Timeout: '3900' }
-    '20': { ClusterCount: '21', CreationTimeout: PT60M,  Timeout: '3900' }
-    '22': { ClusterCount: '23', CreationTimeout: PT60M,  Timeout: '3900' }
-    '24': { ClusterCount: '25', CreationTimeout: PT60M,  Timeout: '3900' }
-    '26': { ClusterCount: '27', CreationTimeout: PT60M,  Timeout: '3900' }
-    '28': { ClusterCount: '29', CreationTimeout: PT60M,  Timeout: '3900' }
-    '30': { ClusterCount: '31', CreationTimeout: PT60M,  Timeout: '3900' }
-    '32': { ClusterCount: '33', CreationTimeout: PT90M,  Timeout: '5700' }
-    '34': { ClusterCount: '35', CreationTimeout: PT90M,  Timeout: '5700' }
-    '36': { ClusterCount: '37', CreationTimeout: PT90M,  Timeout: '5700' }
-    '38': { ClusterCount: '39', CreationTimeout: PT90M,  Timeout: '5700' }
-    '40': { ClusterCount: '41', CreationTimeout: PT90M,  Timeout: '5700' }
-    '42': { ClusterCount: '43', CreationTimeout: PT90M,  Timeout: '5700' }
-    '44': { ClusterCount: '45', CreationTimeout: PT90M,  Timeout: '5700' }
-    '46': { ClusterCount: '47', CreationTimeout: PT90M,  Timeout: '5700' }
-    '48': { ClusterCount: '49', CreationTimeout: PT90M,  Timeout: '5700' }
-    '50': { ClusterCount: '51', CreationTimeout: PT120M, Timeout: '7500' }
-    '52': { ClusterCount: '53', CreationTimeout: PT120M, Timeout: '7500' }
-    '54': { ClusterCount: '55', CreationTimeout: PT120M, Timeout: '7500' }
-    '56': { ClusterCount: '57', CreationTimeout: PT120M, Timeout: '7500' }
-    '58': { ClusterCount: '59', CreationTimeout: PT120M, Timeout: '7500' }
-    '60': { ClusterCount: '61', CreationTimeout: PT120M, Timeout: '7500' }
-    '62': { ClusterCount: '63', CreationTimeout: PT120M, Timeout: '7500' }
-    '64': { ClusterCount: '65', CreationTimeout: PT120M, Timeout: '7500' }
+    '0':  { ClusterCount: '1',  Timeout: '1200' }
+    '2':  { ClusterCount: '3',  Timeout: '1200' }
+    '4':  { ClusterCount: '5',  Timeout: '1380' }
+    '6':  { ClusterCount: '7',  Timeout: '1560' }
+    '8':  { ClusterCount: '9',  Timeout: '1800' }
+    '10': { ClusterCount: '11', Timeout: '1980' }
+    '12': { ClusterCount: '13', Timeout: '2160' }
+    '14': { ClusterCount: '15', Timeout: '2340' }
+    '16': { ClusterCount: '17', Timeout: '2580' }
+    '18': { ClusterCount: '19', Timeout: '2760' }
+    '20': { ClusterCount: '21', Timeout: '2940' }
+    '22': { ClusterCount: '23', Timeout: '3120' }
+    '24': { ClusterCount: '25', Timeout: '3300' }
+    '26': { ClusterCount: '27', Timeout: '3540' }
+    '28': { ClusterCount: '29', Timeout: '3720' }
+    '30': { ClusterCount: '31', Timeout: '3900' }
+    '32': { ClusterCount: '33', Timeout: '4080' }
+    '34': { ClusterCount: '35', Timeout: '4320' }
+    '36': { ClusterCount: '37', Timeout: '4500' }
+    '38': { ClusterCount: '39', Timeout: '4680' }
+    '40': { ClusterCount: '41', Timeout: '4860' }
+    '42': { ClusterCount: '43', Timeout: '5100' }
+    '44': { ClusterCount: '45', Timeout: '5280' }
+    '46': { ClusterCount: '47', Timeout: '5460' }
+    '48': { ClusterCount: '49', Timeout: '5640' }
+    '50': { ClusterCount: '51', Timeout: '5820' }
+    '52': { ClusterCount: '53', Timeout: '6060' }
+    '54': { ClusterCount: '55', Timeout: '6240' }
+    '56': { ClusterCount: '57', Timeout: '6420' }
+    '58': { ClusterCount: '59', Timeout: '6600' }
+    '60': { ClusterCount: '61', Timeout: '6840' }
+    '62': { ClusterCount: '63', Timeout: '7020' }
+    '64': { ClusterCount: '65', Timeout: '7200' }
   ReleaseMapping:
     UserInfo:
       Admin: gpadmin
+      #temporary password used only to exchange ssh keys
       AdminPass: ***REMOVED***
 
 Conditions:
@@ -585,6 +586,7 @@ Resources:
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
+                #temporary password used only to exchange ssh keys
                 AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
 
@@ -688,6 +690,7 @@ Resources:
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
+                #temporary password used only to exchange ssh keys
                 AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
 
