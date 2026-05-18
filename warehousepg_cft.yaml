@@ -1,0 +1,710 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: WarehousePG Cluster
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Deployment Scripts
+        Parameters:
+          - S3Bucket
+      - Label:
+          default: WarehousePG Configuration
+        Parameters:
+          - AccessToken
+          - DatabaseName
+          - SegmentsPerDisk
+      - Label:
+          default: Network
+        Parameters:
+          - InternetAccess
+          - SSHCIDR
+          - VPC
+          - PrivateSubnet
+          - PublicSubnet
+      - Label:
+          default: Storage
+        Parameters:
+          - DataDisks
+          - DiskEncrypted
+          - DiskType
+      - Label:
+          default: All Nodes
+        Parameters:
+          - AMI
+          - KeyPair
+          - TimeZone
+      - Label:
+          default: Coordinator Node
+        Parameters:
+          - CoordinatorNodeType
+          - CoordinatorDiskSize
+      - Label:
+          default: Segment Nodes
+        Parameters:
+          - SegmentNodeType
+          - SegmentDiskSize
+          - SegmentNodeCount
+
+Parameters:
+  S3Bucket:
+    Type: String
+    Description: This bucket contains the unzipped scripts used for completing the deployment of WarehousePG
+    Default: fcto-s3-01
+
+  InternetAccess:
+    Type: String
+    Description: >-
+      True means a Public IP address will be created for the Coordinator Node
+      and ssh access on port 22 will be allowed to the CIDR range specified.
+      Setting false means a bastion host will be needed to connect to the
+      Coordinator node.
+    Default: 'True'
+    AllowedValues:
+      - 'True'
+      - 'False'
+
+  SSHCIDR:
+    Type: String
+    Description: >-
+      The CIDR range to allow SSH access. You can use 0.0.0.0/0 to allow all
+      or a more restrictive range. This is only used if you enable
+      InternetAccess and it is only applied to the SecurityGroup created for
+      the PublicSubnet specified.
+    Default: 0.0.0.0/0
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    ConstraintDescription: Must be a valid CIDR range.
+
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: Choose an existing VPC with DNS support on.
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: >-
+      The Private Subnet must be 1) in the above VPC 2) configured with
+      outbound Internet access (Internet Gateway) 3) map IP Address on launch
+      set on 4) ping, TCP, and UDP traffic allowed within the Private Subnet,
+      and 5) in the same AZ as the PublicSubnet.
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet::Id
+    Description: >-
+      Public facing Subnet for Coordinator Node if Internet Access is desired.
+      If Internet Access is not desired, use the Private Subnet value. Public
+      Subnet must be 1) in the above VPC, 2) map IP address on launch set on,
+      3) configured with outbound Internet access, and 4) in the same AZ as
+      the PrivateSubnet.
+
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: >-
+      Select an existing Amazon EC2 Key Pair. A Key Pair refers to the public
+      and private keys used to access your nodes instead of a password.
+    MinLength: '1'
+
+  DataDisks:
+    Type: Number
+    Description: The number of data disks (disk1, disk2, etc) on each Segment Node.
+    Default: 2
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+
+  SegmentsPerDisk:
+    Type: Number
+    Description: The number of Segments per data disk on each Segment Node.
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+
+  DiskEncrypted:
+    Type: String
+    Description: Encrypt the Cluster Data Disks.
+    Default: 'False'
+    AllowedValues:
+      - 'True'
+      - 'False'
+
+  DiskType:
+    Type: String
+    Description: >-
+      Disk Type for data volumes. SC1 is recommended for most use cases as it
+      can reach the maximum disk throughput possible from the Segment nodes but
+      with slightly slower loading speed. ST1 is recommended for continuous
+      data loading/querying or when the highest disk loading performance
+      possible is needed. Only use GP3 for OLTP workloads.
+    Default: sc1
+    AllowedValues:
+      - sc1
+      - st1
+      - gp3
+
+  TimeZone:
+    Type: String
+    Description: Pick the TimeZone for the entire cluster.
+    Default: America/New_York
+    AllowedValues:
+      - UTC
+      - Asia/Tokyo
+      - Asia/Seoul
+      - Asia/Kolkata
+      - Asia/Singapore
+      - Australia/Sydney
+      - America/Toronto
+      - Europe/Berlin
+      - Europe/Dublin
+      - Europe/London
+      - Europe/Paris
+      - America/Sao_Paulo
+      - America/New_York
+      - America/Chicago
+      - America/Los_Angeles
+      - America/Denver
+
+  AccessToken:
+    Type: String
+    Description: The access token for your EDB software
+    MinLength: '32'
+    MaxLength: '32'
+    AllowedPattern: '^[a-zA-Z0-9]+$'
+    ConstraintDescription: The access token is 32 characters long.
+
+  AMI:
+    Type: AWS::EC2::Image::Id
+    Description: The ami id. The example on is Rocky Linux 9 for us-east-1.
+    Default: ami-0f2425d4cce4e97dd
+
+  DatabaseName:
+    Type: String
+    Description: The name of the default database in the cluster.
+    Default: dev
+    MinLength: '3'
+    MaxLength: '63'
+    AllowedPattern: '^[a-z]([a-z0-9])*?$'
+    ConstraintDescription: >-
+      Must be at least 3 characters long, lower case, start with a letter, and
+      contain only letters and numbers.
+
+  CoordinatorNodeType:
+    Type: String
+    Description: The Coordinator Node Type.
+    Default: r8i.xlarge
+    AllowedValues:
+      - r8i.large
+      - r8i.xlarge
+      - r8i.2xlarge
+      - r8i.4xlarge
+      - r8i.8xlarge
+    ConstraintDescription: Must be a valid EC2 instance type
+
+  CoordinatorDiskSize:
+    Type: Number
+    Description: >-
+      Size in GB for each Data Disk on the Coordinator. For clustered
+      deployments, the Coordinator will only have a single Data Disk.
+    Default: 500
+    AllowedValues:
+      - 500
+      - 1000
+      - 2000
+      - 3000
+      - 4000
+      - 5000
+      - 6000
+      - 7000
+      - 8000
+      - 9000
+      - 10000
+      - 11000
+      - 12000
+      - 12500
+      - 13000
+      - 14000
+      - 15000
+      - 16000
+
+  SegmentNodeType:
+    Type: String
+    Description: The Segment Nodes will use this Node Type.
+    Default: r8i.xlarge
+    AllowedValues:
+      - r8i.large
+      - r8i.xlarge
+      - r8i.2xlarge
+      - r8i.4xlarge
+      - r8i.8xlarge
+    ConstraintDescription: Must be a valid EC2 instance type
+
+  SegmentDiskSize:
+    Type: Number
+    Description: >-
+      Size in GB for each of the three EBS Data Disks on the Segment Nodes.
+      Minimum size set to 2000 because of the significant performance hit for
+      smaller sized disks. Note: This parameter is ignored for Single-Node
+      deployments.
+    Default: 2000
+    AllowedValues:
+      - 2000
+      - 3000
+      - 4000
+      - 5000
+      - 6000
+      - 7000
+      - 8000
+      - 9000
+      - 10000
+      - 11000
+      - 12000
+      - 12500
+      - 13000
+      - 14000
+      - 15000
+      - 16000
+
+  SegmentNodeCount:
+    Type: Number
+    Description: >-
+      Number of dedicated Segment Nodes in the cluster. Pick 0 for Single-Node
+      deployments.
+    Default: 0
+    AllowedValues:
+      - 0
+      - 2
+      - 4
+      - 6
+      - 8
+      - 10
+      - 12
+      - 14
+      - 16
+      - 18
+      - 20
+      - 22
+      - 24
+      - 26
+      - 28
+      - 30
+      - 32
+      - 34
+      - 36
+      - 38
+      - 40
+      - 42
+      - 44
+      - 46
+      - 48
+      - 50
+      - 52
+      - 54
+      - 56
+      - 58
+      - 60
+      - 62
+      - 64
+
+Mappings:
+  ClusterCountMapping:
+    '0':  { ClusterCount: '1',  CreationTimeout: PT20M,  Timeout: '1500' }
+    '2':  { ClusterCount: '3',  CreationTimeout: PT20M,  Timeout: '1500' }
+    '4':  { ClusterCount: '5',  CreationTimeout: PT25M,  Timeout: '1800' }
+    '6':  { ClusterCount: '7',  CreationTimeout: PT30M,  Timeout: '2100' }
+    '8':  { ClusterCount: '9',  CreationTimeout: PT30M,  Timeout: '2100' }
+    '10': { ClusterCount: '11', CreationTimeout: PT45M,  Timeout: '3000' }
+    '12': { ClusterCount: '13', CreationTimeout: PT45M,  Timeout: '3000' }
+    '14': { ClusterCount: '15', CreationTimeout: PT45M,  Timeout: '3000' }
+    '16': { ClusterCount: '17', CreationTimeout: PT60M,  Timeout: '3900' }
+    '18': { ClusterCount: '19', CreationTimeout: PT60M,  Timeout: '3900' }
+    '20': { ClusterCount: '21', CreationTimeout: PT60M,  Timeout: '3900' }
+    '22': { ClusterCount: '23', CreationTimeout: PT60M,  Timeout: '3900' }
+    '24': { ClusterCount: '25', CreationTimeout: PT60M,  Timeout: '3900' }
+    '26': { ClusterCount: '27', CreationTimeout: PT60M,  Timeout: '3900' }
+    '28': { ClusterCount: '29', CreationTimeout: PT60M,  Timeout: '3900' }
+    '30': { ClusterCount: '31', CreationTimeout: PT60M,  Timeout: '3900' }
+    '32': { ClusterCount: '33', CreationTimeout: PT90M,  Timeout: '5700' }
+    '34': { ClusterCount: '35', CreationTimeout: PT90M,  Timeout: '5700' }
+    '36': { ClusterCount: '37', CreationTimeout: PT90M,  Timeout: '5700' }
+    '38': { ClusterCount: '39', CreationTimeout: PT90M,  Timeout: '5700' }
+    '40': { ClusterCount: '41', CreationTimeout: PT90M,  Timeout: '5700' }
+    '42': { ClusterCount: '43', CreationTimeout: PT90M,  Timeout: '5700' }
+    '44': { ClusterCount: '45', CreationTimeout: PT90M,  Timeout: '5700' }
+    '46': { ClusterCount: '47', CreationTimeout: PT90M,  Timeout: '5700' }
+    '48': { ClusterCount: '49', CreationTimeout: PT90M,  Timeout: '5700' }
+    '50': { ClusterCount: '51', CreationTimeout: PT120M, Timeout: '7500' }
+    '52': { ClusterCount: '53', CreationTimeout: PT120M, Timeout: '7500' }
+    '54': { ClusterCount: '55', CreationTimeout: PT120M, Timeout: '7500' }
+    '56': { ClusterCount: '57', CreationTimeout: PT120M, Timeout: '7500' }
+    '58': { ClusterCount: '59', CreationTimeout: PT120M, Timeout: '7500' }
+    '60': { ClusterCount: '61', CreationTimeout: PT120M, Timeout: '7500' }
+    '62': { ClusterCount: '63', CreationTimeout: PT120M, Timeout: '7500' }
+    '64': { ClusterCount: '65', CreationTimeout: PT120M, Timeout: '7500' }
+  ReleaseMapping:
+    UserInfo:
+      Admin: gpadmin
+      AdminPass: ***REMOVED***
+
+Conditions:
+  PublicIP: !Equals [!Ref InternetAccess, 'True']
+  MultiNodes: !Not [!Equals [!Ref SegmentNodeCount, '0']]
+  HasDataDisk2: !Or
+    - !Equals [!Ref DataDisks, '2']
+    - !Equals [!Ref DataDisks, '3']
+    - !Equals [!Ref DataDisks, '4']
+  HasDataDisk3: !Or
+    - !Equals [!Ref DataDisks, '3']
+    - !Equals [!Ref DataDisks, '4']
+  HasDataDisk4: !Equals [!Ref DataDisks, '4']
+
+Resources:
+
+  ClusterCompleteHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  ClusterCompleteCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: CoordinatorNode
+    Properties:
+      Handle: !Ref ClusterCompleteHandle
+      Timeout: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, Timeout]
+      Count: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
+
+  NodeIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: DescribeAccessEC2andCFN
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                  - iam:PassRole
+                  - ec2:CreateTags
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceStatus
+                  - s3:ListAllMyBuckets
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref NodeIAMRole
+
+  PrivateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PrivateSecurityGroup
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref AWS::StackName, PrivateSecurityGroup]]
+
+  PrivateSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: Outbound access
+      GroupId: !Ref PrivateSecurityGroup
+      IpProtocol: '-1'
+      CidrIp: 0.0.0.0/0
+
+  PublicSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PublicSecurityGroup
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref AWS::StackName, PublicSecurityGroup]]
+
+  PublicSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      Description: Outbound access
+      GroupId: !Ref PublicSecurityGroup
+      IpProtocol: '-1'
+      CidrIp: 0.0.0.0/0
+
+  PublicSecurityGroupSSH:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: PublicIP
+    Properties:
+      Description: SSH access
+      GroupId: !Ref PublicSecurityGroup
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      CidrIp: !Ref SSHCIDR
+
+  PrivateSecurityGroupPing:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ping access for the internal network.
+      GroupId: !Ref PrivateSecurityGroup
+      IpProtocol: icmp
+      FromPort: 8
+      ToPort: -1
+      SourceSecurityGroupId: !Ref PrivateSecurityGroup
+
+  PrivateSecurityGroupTCP:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: TCP access for the internal network.
+      GroupId: !Ref PrivateSecurityGroup
+      IpProtocol: tcp
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId: !Ref PrivateSecurityGroup
+
+  PrivateSecurityGroupUDP:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: UDP access for the internal network.
+      GroupId: !Ref PrivateSecurityGroup
+      IpProtocol: udp
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId: !Ref PrivateSecurityGroup
+
+  CoordinatorNodeLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: 32
+              DeleteOnTermination: true
+              VolumeType: gp2
+          - DeviceName: /dev/sdb
+            Ebs:
+              VolumeSize: !Ref CoordinatorDiskSize
+              DeleteOnTermination: true
+              VolumeType: !Ref DiskType
+              Encrypted: !Ref DiskEncrypted
+          - !If
+            - HasDataDisk2
+            - !If
+              - MultiNodes
+              - DeviceName: /dev/sdc
+                NoDevice: 'true'
+              - DeviceName: /dev/sdc
+                Ebs:
+                  VolumeSize: !Ref CoordinatorDiskSize
+                  DeleteOnTermination: true
+                  VolumeType: !Ref DiskType
+                  Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk3
+            - !If
+              - MultiNodes
+              - DeviceName: /dev/sdd
+                NoDevice: 'true'
+              - DeviceName: /dev/sdd
+                Ebs:
+                  VolumeSize: !Ref CoordinatorDiskSize
+                  DeleteOnTermination: true
+                  VolumeType: !Ref DiskType
+                  Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk4
+            - !If
+              - MultiNodes
+              - DeviceName: /dev/sde
+                NoDevice: 'true'
+              - DeviceName: /dev/sde
+                Ebs:
+                  VolumeSize: !Ref CoordinatorDiskSize
+                  DeleteOnTermination: true
+                  VolumeType: !Ref DiskType
+                  Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - DeviceName: /dev/sdz
+            Ebs:
+              VolumeSize: 32
+              DeleteOnTermination: true
+              VolumeType: gp2
+              Encrypted: !Ref DiskEncrypted
+        EbsOptimized: true
+        IamInstanceProfile:
+          Arn: !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/${InstanceProfile}'
+        ImageId: !Ref AMI
+        InstanceType: !Ref CoordinatorNodeType
+        KeyName: !Ref KeyPair
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: !If [PublicIP, true, false]
+            Groups:
+              - !Ref PublicSecurityGroup
+              - !Ref PrivateSecurityGroup
+            SubnetId: !If [PublicIP, !Ref PublicSubnet, !Ref PrivateSubnet]
+        Placement:
+          Tenancy: default
+        UserData:
+          Fn::Base64:
+            Fn::Sub:
+              - |
+                #!/bin/bash
+                PATH+=":/usr/local/bin"
+                export PATH
+                mkdir -p /opt/edb/warehousepg
+                echo 'STACK="${AWS::StackName}"' >> /opt/edb/warehousepg/config.sh
+                echo 'COORDINATOR_HOST_IND="1"' >> /opt/edb/warehousepg/config.sh
+                echo 'VOLUME_TYPE="${DiskType}"' >> /opt/edb/warehousepg/config.sh
+                echo 'TIMEZONE="${TimeZone}"' >> /opt/edb/warehousepg/config.sh
+                echo 'EDB_SUBSCRIPTION_TOKEN="${AccessToken}"' >> /opt/edb/warehousepg/config.sh
+                echo 'DATABASE_NAME="${DatabaseName}"' >> /opt/edb/warehousepg/config.sh
+                echo 'ADMIN="${Admin}"' >> /opt/edb/warehousepg/config.sh
+                echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
+                echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
+                echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
+                echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENTS_PER_DISK="${SegmentsPerDisk}"' >> /opt/edb/warehousepg/config.sh
+                dnf install awscli -y
+                aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
+                chmod 755 /opt/edb/warehousepg/*.sh
+                for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
+              - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
+                AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
+                InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
+
+  CoordinatorNode:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref CoordinatorNodeLaunchTemplate
+        Version: '1'
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref AWS::StackName, cdw]]
+
+  SegmentNodesLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Condition: MultiNodes
+    Properties:
+      LaunchTemplateData:
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: 32
+              DeleteOnTermination: true
+              VolumeType: gp2
+          - DeviceName: /dev/sdb
+            Ebs:
+              VolumeSize: !Ref SegmentDiskSize
+              DeleteOnTermination: true
+              VolumeType: !Ref DiskType
+              Encrypted: !Ref DiskEncrypted
+          - !If
+            - HasDataDisk2
+            - DeviceName: /dev/sdc
+              Ebs:
+                VolumeSize: !Ref SegmentDiskSize
+                DeleteOnTermination: true
+                VolumeType: !Ref DiskType
+                Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk3
+            - DeviceName: /dev/sdd
+              Ebs:
+                VolumeSize: !Ref SegmentDiskSize
+                DeleteOnTermination: true
+                VolumeType: !Ref DiskType
+                Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk4
+            - DeviceName: /dev/sde
+              Ebs:
+                VolumeSize: !Ref SegmentDiskSize
+                DeleteOnTermination: true
+                VolumeType: !Ref DiskType
+                Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - DeviceName: /dev/sdz
+            Ebs:
+              VolumeSize: 32
+              DeleteOnTermination: true
+              VolumeType: gp2
+              Encrypted: !Ref DiskEncrypted
+        EbsOptimized: true
+        IamInstanceProfile:
+          Arn: !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/${InstanceProfile}'
+        ImageId: !Ref AMI
+        InstanceType: !Ref SegmentNodeType
+        KeyName: !Ref KeyPair
+        NetworkInterfaces:
+          - DeviceIndex: 0
+            AssociatePublicIpAddress: false
+            Groups:
+              - !Ref PublicSecurityGroup
+              - !Ref PrivateSecurityGroup
+            SubnetId: !Ref PrivateSubnet
+        Placement:
+          Tenancy: default
+        UserData:
+          Fn::Base64:
+            Fn::Sub:
+              - |
+                #!/bin/bash
+                PATH+=":/usr/local/bin"
+                export PATH
+                mkdir -p /opt/edb/warehousepg
+                echo 'STACK="${AWS::StackName}"' >> /opt/edb/warehousepg/config.sh
+                echo 'COORDINATOR_HOST_IND="0"' >> /opt/edb/warehousepg/config.sh
+                echo 'VOLUME_TYPE="${DiskType}"' >> /opt/edb/warehousepg/config.sh
+                echo 'TIMEZONE="${TimeZone}"' >> /opt/edb/warehousepg/config.sh
+                echo 'EDB_SUBSCRIPTION_TOKEN="${AccessToken}"' >> /opt/edb/warehousepg/config.sh
+                echo 'DATABASE_NAME="${DatabaseName}"' >> /opt/edb/warehousepg/config.sh
+                echo 'ADMIN="${Admin}"' >> /opt/edb/warehousepg/config.sh
+                echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
+                echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
+                echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
+                echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENTS_PER_DISK="${SegmentsPerDisk}"' >> /opt/edb/warehousepg/config.sh
+                dnf install awscli -y
+                aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
+                chmod 755 /opt/edb/warehousepg/*.sh
+                for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
+              - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
+                AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
+                InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
+
+  SegmentNodes:
+    Type: AWS::EC2::EC2Fleet
+    Condition: MultiNodes
+    Properties:
+      Type: instant
+      TargetCapacitySpecification:
+        TotalTargetCapacity: !Ref SegmentNodeCount
+        DefaultTargetCapacityType: on-demand
+      LaunchTemplateConfigs:
+        - LaunchTemplateSpecification:
+            LaunchTemplateId: !Ref SegmentNodesLaunchTemplate
+            Version: '1'
+      TagSpecifications:
+        - ResourceType: instance
+          Tags:
+            - Key: Name
+              Value: !Ref AWS::StackName

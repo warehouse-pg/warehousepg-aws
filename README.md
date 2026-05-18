@@ -30,7 +30,7 @@ Note: make sure the subnets are in the VPC you choose as parameters. AWS does no
 AWS uses a keypair for authenticating via `ssh` to the coordinator node. If you haven't already, create a keypair before you attempt to create a Stack.
 
 ## CloudFormation Stack
-1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_cft.json` in this repo.
+1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_cft.yaml` in this repo.
 ![CFT1](/images/cft1.png)
 2. Fill out the parameters
 - `Stack name`: this is mandatory.
