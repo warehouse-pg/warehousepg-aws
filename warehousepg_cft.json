@@ -78,7 +78,7 @@
 			"Type": "String", 
 			"Description": "Pick the TimeZone for the entire cluster.",
 			"Default": "America/New_York",
-			"AllowedValues": [ "UTC", "Asia/Tokyo", "Asia/Seoul", "Asia/Kolkata", "Asia/Singapore", "Australia/Sydney", "America/Toronto", "Europe/Berlin", "Europe/Dublin", "Europe/London", "Europe/Paris", "America/Sao_Paulo", "America/New_York", "America/Chicago", "America/Los_Angeles", "America/Denver", "America/Los_Angeles", "America/New_York" ]
+			"AllowedValues": [ "UTC", "Asia/Tokyo", "Asia/Seoul", "Asia/Kolkata", "Asia/Singapore", "Australia/Sydney", "America/Toronto", "Europe/Berlin", "Europe/Dublin", "Europe/London", "Europe/Paris", "America/Sao_Paulo", "America/New_York", "America/Chicago", "America/Los_Angeles", "America/Denver" ]
 		},
 		"AccessToken": {
 			"Type": "String",
@@ -395,14 +395,9 @@
 				"LaunchTemplateConfigs": [
 					{
 						"LaunchTemplateSpecification": {
-						"LaunchTemplateId": { "Ref": "SegmentNodesLaunchTemplate" },
-						"Version": "1"
-					},
-					"Overrides": [
-						{
-							"SubnetId": { "Ref": "PrivateSubnet" }
+							"LaunchTemplateId": { "Ref": "SegmentNodesLaunchTemplate" },
+							"Version": "1"
 						}
-					]
 					}
 				],
 				"TagSpecifications": [
@@ -438,7 +433,7 @@
 							"DeviceIndex": 0,
 							"AssociatePublicIpAddress": false,
 							"Groups":[ { "Ref":"PublicSecurityGroup" }, { "Ref":"PrivateSecurityGroup" } ],
-							"SubnetId": { "Fn::If" : [ "PublicIP", { "Ref":"PublicSubnet" }, { "Ref": "PrivateSubnet" } ] }
+							"SubnetId": { "Ref": "PrivateSubnet" }
 						}
 					],
 					"Placement": { "Tenancy": "default" },
