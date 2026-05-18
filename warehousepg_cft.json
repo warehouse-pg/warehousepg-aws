@@ -178,7 +178,6 @@
 	"Conditions": {
 		"PublicIP":{ "Fn::Equals" : [ {"Ref" : "InternetAccess"}, "True" ] },
 		"MultiNodes":{"Fn::Not" : [{ "Fn::Equals":[ {"Ref": "SegmentNodeCount"}, "0" ] }] },
-		"EnableWaitConditions":{ "Fn::Equals":[ "1", "1" ] },
 		"HasDataDisk2": { "Fn::Or": [ { "Fn::Equals": [{ "Ref": "DataDisks" }, "2"]}, { "Fn::Equals": [{ "Ref": "DataDisks" }, "3"]}, { "Fn::Equals": [{ "Ref": "DataDisks" }, "4"]} ] },
 		"HasDataDisk3": { "Fn::Or": [ { "Fn::Equals": [{ "Ref": "DataDisks" }, "3"]}, { "Fn::Equals": [{ "Ref": "DataDisks" }, "4"]} ] },
 		"HasDataDisk4": { "Fn::Equals": [{ "Ref": "DataDisks" }, "4"] }
@@ -189,7 +188,6 @@
 		},
 		"ClusterCompleteCondition":{		    
 			"Type":"AWS::CloudFormation::WaitCondition",  
-			"Condition":"EnableWaitConditions",     
 			"DependsOn":"CoordinatorNode",
 			"Properties":{			  
 				"Handle":{ "Ref":"ClusterCompleteHandle" },
@@ -212,7 +210,7 @@
 				"Policies": [{ 
 					"PolicyDocument":{ 
 						"Statement":[{
-							"Action":[ "iam:PassRole", "ec2:AttachVolume", "ec2:CopySnapshot", "ec2:CreateTags", "ec2:CreateSnapshot", "ec2:CreateVolume", "ec2:CreateLaunchTemplateVersion", "ec2:DetachVolume", "ec2:DescribeRegions", "ec2:DescribeTags", "ec2:DescribeInstances", "ec2:DescribeInstanceStatus", "ec2:DescribeVolumesModifications", "ec2:DescribeVolumeStatus", "ec2:DescribeVolumes", "ec2:DescribeSnapshots", "ec2:DescribeLaunchTemplates", "ec2:DescribeLaunchTemplateVersions", "ec2:DeleteSnapshot", "ec2:DeleteVolume", "ec2:ModifyLaunchTemplate", "ec2:ModifyInstanceAttribute", "ec2:ModifyVolume", "ec2:RunInstance", "ec2:StartInstance", "ec2:StopInstance", "s3:HeadBucket", "s3:ListAllMyBuckets", "s3:ListBucket", "s3:GetObject", "s3:PutObject", "ssm:GetParameter", "ssm:PutParameter", "ssm:DeleteParameter", "ssm:GetParametersByPath", "cloudformation:DescribeStacks", "cloudformation:ListStacks", "cloudformation:DescribeStackResources" ],
+							"Action":[ "iam:PassRole", "ec2:CreateTags", "ec2:DescribeInstances", "ec2:DescribeInstanceStatus", "s3:ListAllMyBuckets", "s3:ListBucket", "s3:GetObject", "s3:PutObject" ],
 							"Effect":"Allow", "Resource":"*" 
 						}] 
 					}, 
@@ -241,8 +239,6 @@
 				"Description": "Outbound access",
 				"GroupId": { "Ref": "PrivateSecurityGroup" },
 				"IpProtocol": "-1",
-				"FromPort": -1,
-				"ToPort": -1,
 				"CidrIp": "0.0.0.0/0"
 			}
 		},
@@ -260,8 +256,6 @@
 				"Description": "Outbound access",
 				"GroupId": { "Ref": "PublicSecurityGroup" },
 				"IpProtocol": "-1",
-				"FromPort": -1,
-				"ToPort": -1,
 				"CidrIp": "0.0.0.0/0"
 			}
 		},
