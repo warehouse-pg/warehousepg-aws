@@ -311,33 +311,14 @@
 			}
 		},
 		"CoordinatorNode": {
-			"Type": "AWS::EC2::EC2Fleet",
+			"Type": "AWS::EC2::Instance",
 			"Properties": {
-				"Type": "instant",
-				"TargetCapacitySpecification": {
-					"TotalTargetCapacity": 1,
-					"DefaultTargetCapacityType": "on-demand"
+				"LaunchTemplate": {
+					"LaunchTemplateId": { "Ref": "CoordinatorNodeLaunchTemplate" },
+					"Version": "1"
 				},
-				"LaunchTemplateConfigs": [
-					{
-						"LaunchTemplateSpecification": {
-							"LaunchTemplateId": { "Ref": "CoordinatorNodeLaunchTemplate" },
-							"Version": "1"
-						},
-						"Overrides": [
-							{
-								"SubnetId": { "Fn::If": [ "PublicIP", { "Ref": "PublicSubnet" }, { "Ref": "PrivateSubnet" } ] }
-							}
-						]
-					}
-				],
-				"TagSpecifications": [
-					{
-						"ResourceType": "instance",
-						"Tags": [
-							{ "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "cdw" ] ] } }
-						]
-					}
+				"Tags": [
+					{ "Key": "Name", "Value": { "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "cdw" ] ] } }
 				]
 			}
 		},
