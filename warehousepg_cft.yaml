@@ -571,7 +571,6 @@ Resources:
                 mkdir -p /opt/edb/warehousepg
                 echo 'STACK="${AWS::StackName}"' >> /opt/edb/warehousepg/config.sh
                 echo 'COORDINATOR_HOST_IND="1"' >> /opt/edb/warehousepg/config.sh
-                echo 'VOLUME_TYPE="${DiskType}"' >> /opt/edb/warehousepg/config.sh
                 echo 'TIMEZONE="${TimeZone}"' >> /opt/edb/warehousepg/config.sh
                 echo 'EDB_SUBSCRIPTION_TOKEN="${AccessToken}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATABASE_NAME="${DatabaseName}"' >> /opt/edb/warehousepg/config.sh
@@ -581,7 +580,14 @@ Resources:
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SEGMENTS_PER_DISK="${SegmentsPerDisk}"' >> /opt/edb/warehousepg/config.sh
-                dnf install awscli -y
+                #need newer aws cli version for s3files
+                #dnf install awscli -y
+                curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
+                echo "fastestmirror=True" >> /etc/dnf/dnf.conf
+                dnf install unzip -y
+                unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
+                /opt/edb/warehousepg/aws/install
+                echo "export PATH=/usr/local/bin:\$PATH" >> ${!HOME}/.bashrc
                 aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
@@ -675,7 +681,6 @@ Resources:
                 mkdir -p /opt/edb/warehousepg
                 echo 'STACK="${AWS::StackName}"' >> /opt/edb/warehousepg/config.sh
                 echo 'COORDINATOR_HOST_IND="0"' >> /opt/edb/warehousepg/config.sh
-                echo 'VOLUME_TYPE="${DiskType}"' >> /opt/edb/warehousepg/config.sh
                 echo 'TIMEZONE="${TimeZone}"' >> /opt/edb/warehousepg/config.sh
                 echo 'EDB_SUBSCRIPTION_TOKEN="${AccessToken}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATABASE_NAME="${DatabaseName}"' >> /opt/edb/warehousepg/config.sh
@@ -685,7 +690,14 @@ Resources:
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SEGMENTS_PER_DISK="${SegmentsPerDisk}"' >> /opt/edb/warehousepg/config.sh
-                dnf install awscli -y
+                #need newer aws cli version for s3files
+                #dnf install awscli -y
+                curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
+                echo "fastestmirror=True" >> /etc/dnf/dnf.conf
+                dnf install unzip -y
+                unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
+                /opt/edb/warehousepg/aws/install
+                echo "export PATH=/usr/local/bin:\$PATH" >> ${!HOME}/.bashrc
                 aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done

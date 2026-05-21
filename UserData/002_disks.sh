@@ -23,7 +23,7 @@ destroy()
 {
 	#swap files 
 	for i in $(swapon -s | grep -v Filename |  awk -F ' ' '{print $1}'); do
-		swapoff -v $i
+		swapoff -v ${i}
 	done
 
 	#umount
@@ -39,21 +39,21 @@ destroy()
 		counter=$((counter+1))
 		directory="/data${counter}"
 
-		mounted=$(mount | grep -w $directory | wc -l)
+		mounted=$(mount | grep -w ${directory} | wc -l)
 		if [ "$mounted" -eq "1" ]; then
-			umount $directory || true
+			umount ${directory} || true
 		fi
 
 		if [ -d "$directory" ]; then
-			rm -rf $directory
+			rm -rf ${directory}
 		fi
 	done
 
 	for i in $(cat $INSTALL_DIR/data_disks.txt); do
 		existing_filesystem=$(file -sL $i | grep filesystem | wc -l)
 		if [ "$existing_filesystem" -gt "0" ]; then
-			 echo "dd if=/dev/zero of=$i bs=1M count=1024"
-			 dd if=/dev/zero of=$i bs=1M count=1024
+			 echo "dd if=/dev/zero of=${i} bs=1M count=1024"
+			 dd if=/dev/zero of=${i} bs=1M count=1024
 		fi
 	done
 }
@@ -63,38 +63,38 @@ create()
 	for i in $(cat ${INSTALL_DIR}/data_disks.txt); do
 		counter=$((counter+1))
 		new_dir="/data${counter}"
-		if [ ! -d "$new_dir" ]; then
-			mkdir $new_dir
+		if [ ! -d "${new_dir}" ]; then
+			mkdir ${new_dir}
 		fi
 	done
 
 	for i in $(cat ${INSTALL_DIR}/data_disks.txt); do
-		echo "/sbin/blockdev --setra 16384 $i"
-		/sbin/blockdev --setra 16384 $i
+		echo "/sbin/blockdev --setra 16384 ${i}"
+		/sbin/blockdev --setra 16384 ${i}
 		vol=$(echo $i | awk -F '/' '{print $3}')
 		echo "mq-deadline" > /sys/block/${vol}/queue/scheduler
 	done
 
 	for i in $(cat ${INSTALL_DIR}/data_disks.txt); do
-		mkfs.xfs -f $i
+		mkfs.xfs -f ${i}
 	done
 
 	counter="0"
 	for i in $(cat ${INSTALL_DIR}/data_disks.txt); do
 		counter=$((counter+1))
-		directory="/data$counter"
+		directory="/data${counter}"
 		uuid=$(blkid $i | awk -F '"' '{print $2}')
 		mount -t xfs -o rw,noatime,nodev -U $uuid $directory || true
-		echo "UUID=$uuid $directory xfs rw,noatime,nodev 0 2" >> /etc/fstab
-		chown $ADMIN:$ADMIN $directory
+		echo "UUID=${uuid} ${directory} xfs rw,noatime,nodev 0 2" >> /etc/fstab
+		chown ${ADMIN}:${ADMIN} ${directory}
 	done
 
 	disk=$(cat ${INSTALL_DIR}/swap_disk.txt)
 	sed -i "/swap/ d" /etc/fstab
-	mkswap -f $disk
-	swapon $disk
-	uuid=$(blkid $disk | awk -F '"' '{print $2}')
-	echo "UUID=$uuid swap  swap  defaults 0 0" >> /etc/fstab
+	mkswap -f ${disk}
+	swapon ${disk}
+	uuid=$(blkid ${disk} | awk -F '"' '{print $2}')
+	echo "UUID=${uuid} swap  swap  defaults 0 0" >> /etc/fstab
 	swapon -s
 
 	df -h

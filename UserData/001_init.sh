@@ -10,8 +10,7 @@ set_os_params()
 	#these yum statements take a while so comment out for now
 	#yum check-update || true
 	#yum update -y
-	echo "fastestmirror=True" >> /etc/dnf/dnf.conf
-	dnf install libevent sshpass gcc kernel-devel m4 flex wget zip unzip bzip2 krb5-devel xfsdump expect cloud-init tk bc psmisc cloud-init epel-release -y
+	dnf install libevent sshpass gcc kernel-devel m4 flex wget zip bzip2 krb5-devel xfsdump expect cloud-init tk bc psmisc cloud-init epel-release -y
 	dnf install python3-pip -y
 	pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
 	count=$(cat /etc/passwd | grep ${ADMIN} | wc -l)
