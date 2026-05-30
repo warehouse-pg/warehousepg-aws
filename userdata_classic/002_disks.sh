@@ -29,8 +29,8 @@ destroy()
 	#umount
 	for i in $(cat ${INSTALL_DIR}/data_disks.txt); do
 		uuid=$(blkid $i | awk -F '"' '{print $2}')
-		if [ ! "$uuid" == "" ]; then
-			sed -i "/$uuid/ d" /etc/fstab
+		if [ ! "${uuid}" == "" ]; then
+			sed -i "/${uuid}/ d" /etc/fstab
 		fi
 	done
 
@@ -40,18 +40,18 @@ destroy()
 		directory="/data${counter}"
 
 		mounted=$(mount | grep -w ${directory} | wc -l)
-		if [ "$mounted" -eq "1" ]; then
+		if [ "${mounted}" -eq "1" ]; then
 			umount ${directory} || true
 		fi
 
-		if [ -d "$directory" ]; then
+		if [ -d "${directory}" ]; then
 			rm -rf ${directory}
 		fi
 	done
 
 	for i in $(cat $INSTALL_DIR/data_disks.txt); do
 		existing_filesystem=$(file -sL $i | grep filesystem | wc -l)
-		if [ "$existing_filesystem" -gt "0" ]; then
+		if [ "${existing_filesystem}" -gt "0" ]; then
 			 echo "dd if=/dev/zero of=${i} bs=1M count=1024"
 			 dd if=/dev/zero of=${i} bs=1M count=1024
 		fi
@@ -84,7 +84,7 @@ create()
 		counter=$((counter+1))
 		directory="/data${counter}"
 		uuid=$(blkid $i | awk -F '"' '{print $2}')
-		mount -t xfs -o rw,noatime,nodev -U $uuid $directory || true
+		mount -t xfs -o rw,noatime,nodev -U ${uuid} ${directory} || true
 		echo "UUID=${uuid} ${directory} xfs rw,noatime,nodev 0 2" >> /etc/fstab
 		chown ${ADMIN}:${ADMIN} ${directory}
 	done

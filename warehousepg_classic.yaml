@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: WarehousePG Cluster
+Description: WarehousePG Cluster Classic
 
 Metadata:
   AWS::CloudFormation::Interface:

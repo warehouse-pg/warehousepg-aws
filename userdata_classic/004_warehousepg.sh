@@ -75,10 +75,10 @@ create_initsystem_file()
 
 	#comment out defaults
 	sed -i 's/^declare/#declare/g' ${INSTALL_DIR}/gpinitsystem_config
-	sed -i 's/^COORDINATOR_DIRECTORY/#COORDINATOR_DIRECTORY/g' $INSTALL_DIR/gpinitsystem_config
-	sed -i 's/^DATABASE_NAME/#DATABASE_NAME/g' $INSTALL_DIR/gpinitsystem_config
-	sed -i 's/^MACHINE_FILE_LIST/#MACHINE_FILE_LIST/g' $INSTALL_DIR/gpinitsystem_config
-	sed -i 's/^COORDINATOR_PORT/#COORDINATOR_PORT/g' $INSTALL_DIR/gpinitsystem_config
+	sed -i 's/^COORDINATOR_DIRECTORY/#COORDINATOR_DIRECTORY/g' ${INSTALL_DIR}/gpinitsystem_config
+	sed -i 's/^DATABASE_NAME/#DATABASE_NAME/g' ${INSTALL_DIR}/gpinitsystem_config
+	sed -i 's/^MACHINE_FILE_LIST/#MACHINE_FILE_LIST/g' ${INSTALL_DIR}/gpinitsystem_config
+	sed -i 's/^COORDINATOR_PORT/#COORDINATOR_PORT/g' ${INSTALL_DIR}/gpinitsystem_config
 
 	data_directory="declare -a DATA_DIRECTORY=( "
 	mirror_data_directory="declare -a MIRROR_DATA_DIRECTORY=( "
@@ -136,7 +136,7 @@ signal_complete()
 
 set_env
 
-if [ "$NODE_INDEX" -eq "0" ]; then
+if [ "${NODE_INDEX}" -eq "0" ]; then
 	exchange_keys
 	create_directories
 	create_initsystem_file

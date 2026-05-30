@@ -84,7 +84,7 @@ set_os_params()
 	echo "* hard nproc 131072" >> /etc/security/limits.conf
 
 	#timezone
-	timedatectl set-timezone $TIMEZONE
+	timedatectl set-timezone ${TIMEZONE}
 }
 get_aws_metadata()
 {
@@ -117,7 +117,7 @@ get_ready_count()
 		for i in $(aws ec2 describe-instance-status --region ${REGION} --instance-ids ${instance_id} --query 'InstanceStatuses[*].{SystemStatus:SystemStatus.Details[0].Status,InstanceStatus:InstanceStatus.Details[0].Status}' --output text | awk -F '\t' '{print $1 "|" $2}'); do
 			system_status=$(echo $i | awk -F '|' '{print $1}')
 			instance_status=$(echo $i | awk -F '|' '{print $2}')
-			if [[ "$system_status" == "passed" && "$instance_status" == "passed" ]]; then
+			if [[ "${system_status}" == "passed" && "${instance_status}" == "passed" ]]; then
 				ready_count=$((ready_count+1))
 			fi
 		done
@@ -256,7 +256,7 @@ create_nodes_files()
 get_edb_binaries()
 {
 
-	curl -1sSLf "https://downloads.enterprisedb.com/$EDB_SUBSCRIPTION_TOKEN/gpsupp/setup.rpm.sh" | sudo -E bash
+	curl -1sSLf "https://downloads.enterprisedb.com/${EDB_SUBSCRIPTION_TOKEN}/gpsupp/setup.rpm.sh" | sudo -E bash
 	dnf install -y warehouse-pg-7 warehouse-pg-clients whpg-backup
 }
 set_os_params
