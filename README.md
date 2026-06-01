@@ -49,7 +49,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `TimeZone`: sets the TZ on all nodes.
 
 ### CloudFormation Classic Stack
-![Architecture](warehousepg_classic_architecture.png)
+![Architecture](/images/warehousepg_classic_architecture.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging EBS storage and databaes mirroring.
 
 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic.yaml` in this repo.
