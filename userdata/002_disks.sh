@@ -19,7 +19,7 @@ assign_disks()
 	echo "${root_disk}" > ${INSTALL_DIR}/root_disk.txt
 
 	#get the smallest disk that isn't root
-	swap_disk=$(lsblk -b -o PATH,SIZE -d | tr -s ' ' '|' | tail -n +2 | grep -v "${root_disk}" | sort -k2 -r -h | awk -F '|' '{print $1}' | head -n1)
+	swap_disk=$(lsblk -b -o PATH,SIZE -d | tail -n +2 | grep -v "${root_disk}" | sort -k2,2 -n | awk -F ' ' '{print $1}' | head -n1)
 	echo "${swap_disk}" > ${INSTALL_DIR}/swap_disk.txt
 
 	#get the remaining disks for cache
@@ -110,10 +110,24 @@ create()
 		mount -t xfs -o rw,noatime,nodev ${i} ${directory} || true
 		mkdir -p ${directory}/fscache
 		mkdir -p ${directory}/gptemp
+		chown ${ADMIN}:${ADMIN} ${directory}/gptemp
 	done
 
 	echo "enable cache"
 	sed -i 's/^dir /#dir /g' /etc/cachefilesd.conf
+	sed -i 's/^brun /#brun /g' /etc/cachefilesd.conf
+	sed -i 's/^bcull /#bcull /g' /etc/cachefilesd.conf
+	sed -i 's/^bstop /#bstop /g' /etc/cachefilesd.conf
+	sed -i 's/^frun /#frun /g' /etc/cachefilesd.conf
+	sed -i 's/^fcull /#fcull /g' /etc/cachefilesd.conf
+	sed -i 's/^fstop /#fstop /g' /etc/cachefilesd.conf
+
+	echo "brun 30%" >> /etc/cachefilesd.conf
+	echo "bcull 25%" >> /etc/cachefilesd.conf
+	echo "bstop 20%" >> /etc/cachefilesd.conf
+	echo "frun 30%" >> /etc/cachefilesd.conf
+	echo "fcull 25%" >> /etc/cachefilesd.conf
+	echo "fstop 20%" >> /etc/cachefilesd.conf
 	echo "dir /cache1/fscache" >> /etc/cachefilesd.conf
 
 	echo "systemctl enable cachefilesd"
@@ -136,7 +150,8 @@ create()
 	echo "mkdir ${s3_data_dir}"
 	mkdir ${s3_data_dir}
 	s3_file_system_id=$(aws s3files list-file-systems --region ${REGION} --query "fileSystems[?bucket=='${DATA_BUCKET}'].{fileSystemId:fileSystemId}" --output text)
-	echo "${s3_file_system_id} ${s3_data_dir} s3files _netdev,fsc,noatime,nodev,x-systemd.requires=cachefilesd.service 0 0" >> /etc/fstab
+	echo "${s3_file_system_id} ${s3_data_dir} s3files _netdev,noauto,fsc,noatime,nodev 0 0" >> /etc/fstab
+
 	#fsc tells the mount to use the filesystem cache
 	#noatime tells the mount to not update the timestamp when a file is updated. helps with disk performance
 	#nodev good for security hardening
@@ -161,7 +176,36 @@ create()
 
 	df -h
 }
+create_startup_service()
+{
+	startup_script="cache-startup.sh"
+	startup_service="cache-startup.service"
+	if [ -f ${INSTALL_DIR}/${startup_script} ]; then
+		cp ${INSTALL_DIR}/${startup_script} /usr/local/bin/
+
+		echo "[Unit]" > ${INSTALL_DIR}/${startup_service}
+		echo "Description=Initialize and mount NVMe instance store for fscache" >> ${INSTALL_DIR}/${startup_service}
+		echo "DefaultDependencies=no" >> ${INSTALL_DIR}/${startup_service}
+		echo "After=local-fs.target" >> ${INSTALL_DIR}/${startup_service}
+		echo "" >> ${INSTALL_DIR}/${startup_service}
+		echo "[Service]" >> ${INSTALL_DIR}/${startup_service}
+		echo "Type=oneshot" >> ${INSTALL_DIR}/${startup_service}
+		echo "RemainAfterExit=yes" >> ${INSTALL_DIR}/${startup_service}
+		echo "ExecStart=/usr/local/bin/${startup_script}" >> ${INSTALL_DIR}/${startup_service}
+		echo "" >> ${INSTALL_DIR}/${startup_service}
+		echo "[Install]" >> ${INSTALL_DIR}/${startup_service}
+		echo "WantedBy=multi-user.target" >> ${INSTALL_DIR}/${startup_service}
+
+		chmod 755 ${INSTALL_DIR}/${startup_service}
+		cat ${INSTALL_DIR}/${startup_service}
+
+		cp ${INSTALL_DIR}/${startup_service} /etc/systemd/system/${startup_service}
+		systemctl daemon-reload
+		systemctl enable ${startup_service}
+	fi
+}
 
 assign_disks
 destroy
 create
+create_startup_service

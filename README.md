@@ -27,6 +27,7 @@ Ideally, you also have a public subnet configured. It needs an Internet Gateway 
 Note: make sure the subnets are in the VPC you choose as parameters. AWS does not have dependent parameters so it will show you a list of all subnets in your region.
 
 ### CloudFormation Stack
+![Architecture](images/warehousepg_architecture_detailed.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging local SSD for caching, S3Files for data storage, and EFS for database files other than data.
 
 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg.yaml` in this repo.
@@ -48,6 +49,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `TimeZone`: sets the TZ on all nodes.
 
 ### CloudFormation Classic Stack
+![Architecture](images/warehousepg_classic_detailed.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging EBS storage and databaes mirroring.
 
 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic.yaml` in this repo.
