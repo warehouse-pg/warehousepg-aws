@@ -187,6 +187,8 @@ create_startup_service()
 		echo "Description=Initialize and mount NVMe instance store for fscache" >> ${INSTALL_DIR}/${startup_service}
 		echo "DefaultDependencies=no" >> ${INSTALL_DIR}/${startup_service}
 		echo "After=local-fs.target" >> ${INSTALL_DIR}/${startup_service}
+		echo "After=network-online.target" >> ${INSTALL_DIR}/${startup_service}
+		echo "Wants=network-online.target" >> ${INSTALL_DIR}/${startup_service}
 		echo "" >> ${INSTALL_DIR}/${startup_service}
 		echo "[Service]" >> ${INSTALL_DIR}/${startup_service}
 		echo "Type=oneshot" >> ${INSTALL_DIR}/${startup_service}
