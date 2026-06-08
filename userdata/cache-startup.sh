@@ -78,10 +78,6 @@ create()
 		mount -t xfs -o rw,noatime,nodev ${i} ${directory} 
 		echo "mkdir -p ${directory}/fscache"
 		mkdir -p ${directory}/fscache
-		echo "mkdir -p ${directory}/gptemp"
-		mkdir -p ${directory}/gptemp
-		echo "chown ${ADMIN}:${ADMIN} ${directory}/gptemp"
-		chown ${ADMIN}:${ADMIN} ${directory}/gptemp
 	done
 
 	echo "systemctl start cachefilesd"
@@ -104,7 +100,28 @@ create()
 	echo "mount /s3data"
 	mount /s3data
 }
+restore_gptemp()
+{
+	echo "mkdir -p /cache1/gptemp"
+	mkdir -p /cache1/gptemp
+
+	dir=$(cat /data/temp_dir.txt)
+	segment_count=$(ls /data/primary/ | wc -l)
+	#add 1 for the coordinator
+	total_count=$((1+segment_count))
+
+	n="0"
+	for i in $(seq 1 ${total_count}); do
+		n=$((n+1))
+		echo "mkdir -p /cache1/gptemp/${n}/${dir}/"
+		mkdir -p /cache1/gptemp/${n}/${dir}/
+	done
+
+	echo "chown -R ${ADMIN}:${ADMIN} ${directory}/gptemp"
+	chown -R ${ADMIN}:${ADMIN} ${directory}/gptemp
+}
 
 assign_disks
 destroy
 create
+restore_gptemp

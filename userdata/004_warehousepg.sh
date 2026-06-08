@@ -148,6 +148,11 @@ set_temp_tablespace()
 	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; psql -c \"drop tablespace if exists gptemp;\""
 	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; psql -c \"create tablespace gptemp location '/cache1/gptemp';\""
 	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; gpconfig -c temp_tablespaces -v \"gptemp\"; gpstop -u"
+
+	catalog_version=$(su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; pg_controldata \${COORDINATOR_DATA_DIRECTORY} | grep \"Catalog version number\"" | awk -F ':' '{print $2}' | xargs)
+	temp_dir="GPDB_7_${catalog_version}"
+	echo "${temp_dir}" > ${data_dir}/temp_dir.txt
+	chown ${ADMIN}:${ADMIN} ${data_dir}/temp_dir.txt
 }
 disable_password_auth()
 {

@@ -30,6 +30,8 @@ Note: make sure the subnets are in the VPC you choose as parameters. AWS does no
 ![Architecture](images/warehousepg_architecture_detailed.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging local SSD for caching, S3Files for data storage, and EFS for database files other than data.
 
+*Note: This architecture causes DROP statements to execute much more slowly than the Classic deployment. This is because the DROP behavior checks for fork files which gets turned into an S3 API call.*
+
 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg.yaml` in this repo.
 ![CFT1](/images/cft1.png)
 2. Fill out the parameters
