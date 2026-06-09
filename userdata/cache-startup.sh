@@ -105,7 +105,7 @@ restore_gptemp()
 	echo "mkdir -p /cache1/gptemp"
 	mkdir -p /cache1/gptemp
 
-	dir=$(cat /data/temp_dir.txt)
+	dir=$(cat /s3data/temp_dir.txt)
 	segment_count=$(ls /data/primary/ | wc -l)
 	#add 1 for the coordinator
 	total_count=$((1+segment_count))
@@ -117,8 +117,8 @@ restore_gptemp()
 		mkdir -p /cache1/gptemp/${n}/${dir}/
 	done
 
-	echo "chown -R ${ADMIN}:${ADMIN} ${directory}/gptemp"
-	chown -R ${ADMIN}:${ADMIN} ${directory}/gptemp
+	echo "chown -R ${ADMIN}:${ADMIN} /cache1/gptemp"
+	chown -R ${ADMIN}:${ADMIN} /cache1/gptemp
 }
 
 assign_disks

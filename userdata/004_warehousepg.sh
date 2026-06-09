@@ -151,8 +151,8 @@ set_temp_tablespace()
 
 	catalog_version=$(su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; pg_controldata \${COORDINATOR_DATA_DIRECTORY} | grep \"Catalog version number\"" | awk -F ':' '{print $2}' | xargs)
 	temp_dir="GPDB_7_${catalog_version}"
-	echo "${temp_dir}" > ${data_dir}/temp_dir.txt
-	chown ${ADMIN}:${ADMIN} ${data_dir}/temp_dir.txt
+	echo "${temp_dir}" > ${s3_data_dir}/temp_dir.txt
+	chown ${ADMIN}:${ADMIN} ${s3_data_dir}/temp_dir.txt
 }
 disable_password_auth()
 {
