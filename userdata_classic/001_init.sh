@@ -257,7 +257,9 @@ get_edb_binaries()
 {
 
 	curl -1sSLf "https://downloads.enterprisedb.com/${EDB_SUBSCRIPTION_TOKEN}/gpsupp/setup.rpm.sh" | sudo -E bash
-	dnf install -y warehouse-pg-7 warehouse-pg-clients whpg-backup
+	dnf install -y warehouse-pg-7 warehouse-pg-clients whpg-backup edb-whpg7-pxf java
+	chown ${ADMIN}:${ADMIN} -R /usr/edb/whpg7
+	chown ${ADMIN}:${ADMIN} -R /usr/local/edb-whpg7-pxf
 }
 set_os_params
 get_aws_metadata
