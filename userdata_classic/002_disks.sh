@@ -13,7 +13,7 @@ assign_disks()
 	echo "${root_disk}" > ${INSTALL_DIR}/root_disk.txt
 
 	#get the smallest disk that isn't root
-	swap_disk=$(lsblk -b -o PATH,SIZE -d | tr -s ' ' '|' | tail -n +2 | grep -v "${root_disk}" | sort -k2 -r -h | awk -F '|' '{print $1}' | head -n1)
+	swap_disk=$(lsblk -b -o PATH,SIZE -d | tail -n +2 | grep -v "${root_disk}" | sort -k2,2 -n | awk -F ' ' '{print $1}' | head -n1)
 	echo "${swap_disk}" > ${INSTALL_DIR}/swap_disk.txt
 
 	#get the remaining disks for data
