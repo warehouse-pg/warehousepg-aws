@@ -481,37 +481,43 @@ Resources:
       Timeout: 300
       Code:
         ZipFile: |
-          import boto3
-          import cfnresponse
-
-          def handler(event, context):
-              if event['RequestType'] == 'Delete':
-                  bucket = event['ResourceProperties']['BucketName']
-                  s3 = boto3.client('s3')
-                  total_deleted = 0
-                  total_errors = 0
-                  try:
-                      paginator = s3.get_paginator('list_object_versions')
-                      for page in paginator.paginate(Bucket=bucket):
-                          objects = []
-                          for v in page.get('Versions', []):
-                              objects.append({'Key': v['Key'], 'VersionId': v['VersionId']})
-                          for m in page.get('DeleteMarkers', []):
-                              objects.append({'Key': m['Key'], 'VersionId': m['VersionId']})
-                          for i in range(0, len(objects), 1000):
-                              batch = objects[i:i+1000]
-                              response = s3.delete_objects(Bucket=bucket, Delete={'Objects': batch})
-                              total_deleted += len(response.get('Deleted', []))
-                              errors = response.get('Errors', [])
-                              total_errors += len(errors)
-                              for e in errors:
-                                  print(f"Error deleting {e['Key']}: {e['Code']} - {e['Message']}")
-                      print(f"Complete - deleted: {total_deleted}, errors: {total_errors}")
-                  except Exception as e:
-                      print(f"Exception: {e}")
-                      cfnresponse.send(event, context, cfnresponse.FAILED, {})
-                      return
-              cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+           import boto3
+           import cfnresponse
+           from concurrent.futures import ThreadPoolExecutor, as_completed
+           
+           def delete_batch(s3, bucket, objects):
+               if not objects:
+                   return 0, []
+               resp = s3.delete_objects(Bucket=bucket, Delete={'Objects': objects})
+               return len(resp.get('Deleted', [])), resp.get('Errors', [])
+             
+           def handler(event, context):
+               if event['RequestType'] == 'Delete':
+                   bucket = event['ResourceProperties']['BucketName']
+                   s3 = boto3.client('s3')
+                   total_deleted = 0
+                   try:
+                       paginator = s3.get_paginator('list_object_versions')
+                       futures = []
+                       with ThreadPoolExecutor(max_workers=10) as executor:
+                           for page in paginator.paginate(Bucket=bucket):
+                               objects = [
+                                   {'Key': v['Key'], 'VersionId': v['VersionId']}
+                                   for v in page.get('Versions', []) + page.get('DeleteMarkers', [])
+                               ]
+                               for i in range(0, len(objects), 1000):
+                                   futures.append(executor.submit(delete_batch, s3, bucket, objects[i:i+1000]))
+                       for f in as_completed(futures):
+                           deleted, errors = f.result()
+                           total_deleted += deleted
+                           for e in errors:
+                               print(f"Error: {e['Key']}: {e['Code']} - {e['Message']}")
+                       print(f"Complete - deleted: {total_deleted}")
+                   except Exception as e:
+                       print(f"Exception: {e}")
+                       cfnresponse.send(event, context, cfnresponse.FAILED, {})
+                       return
+               cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
 
   EmptyBucketLambdaLogGroup:
     Type: AWS::Logs::LogGroup

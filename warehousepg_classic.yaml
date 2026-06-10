@@ -28,23 +28,16 @@ Metadata:
           - DataDisks
           - DiskEncrypted
           - DiskType
+          - CoordinatorDiskSize
+          - SegmentDiskSize
       - Label:
           default: All Nodes
         Parameters:
+          - NodeType
+          - SegmentNodeCount
           - AMI
           - KeyPair
           - TimeZone
-      - Label:
-          default: Coordinator Node
-        Parameters:
-          - CoordinatorNodeType
-          - CoordinatorDiskSize
-      - Label:
-          default: Segment Nodes
-        Parameters:
-          - SegmentNodeType
-          - SegmentDiskSize
-          - SegmentNodeCount
 
 Parameters:
   S3Bucket:
@@ -116,7 +109,7 @@ Parameters:
   SegmentsPerDisk:
     Type: Number
     Description: The number of Segments per data disk on each Segment Node.
-    Default: 1
+    Default: 2
     AllowedValues:
       - 1
       - 2
@@ -126,7 +119,7 @@ Parameters:
   DiskEncrypted:
     Type: String
     Description: Encrypt the Cluster Data Disks.
-    Default: 'False'
+    Default: 'True'
     AllowedValues:
       - 'True'
       - 'False'
@@ -139,7 +132,7 @@ Parameters:
       with slightly slower loading speed. ST1 is recommended for continuous
       data loading/querying or when the highest disk loading performance
       possible is needed. Only use GP3 for OLTP workloads.
-    Default: sc1
+    Default: st1
     AllowedValues:
       - sc1
       - st1
@@ -191,16 +184,14 @@ Parameters:
       Must be at least 3 characters long, lower case, start with a letter, and
       contain only letters and numbers.
 
-  CoordinatorNodeType:
+  NodeType:
     Type: String
-    Description: The Coordinator Node Type.
-    Default: r8i.xlarge
+    Description: The Node Type.
+    Default: r6in.4xlarge
     AllowedValues:
-      - r8i.large
-      - r8i.xlarge
-      - r8i.2xlarge
-      - r8i.4xlarge
-      - r8i.8xlarge
+      - r6in.2xlarge
+      - r6in.4xlarge
+      - r6in.8xlarge
     ConstraintDescription: Must be a valid EC2 instance type
 
   CoordinatorDiskSize:
@@ -228,18 +219,6 @@ Parameters:
       - 14000
       - 15000
       - 16000
-
-  SegmentNodeType:
-    Type: String
-    Description: The Segment Nodes will use this Node Type.
-    Default: r8i.xlarge
-    AllowedValues:
-      - r8i.large
-      - r8i.xlarge
-      - r8i.2xlarge
-      - r8i.4xlarge
-      - r8i.8xlarge
-    ConstraintDescription: Must be a valid EC2 instance type
 
   SegmentDiskSize:
     Type: Number
@@ -550,7 +529,7 @@ Resources:
         IamInstanceProfile:
           Arn: !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/${InstanceProfile}'
         ImageId: !Ref AMI
-        InstanceType: !Ref CoordinatorNodeType
+        InstanceType: !Ref NodeType
         KeyName: !Ref KeyPair
         NetworkInterfaces:
           - DeviceIndex: 0
@@ -660,7 +639,7 @@ Resources:
         IamInstanceProfile:
           Arn: !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/${InstanceProfile}'
         ImageId: !Ref AMI
-        InstanceType: !Ref SegmentNodeType
+        InstanceType: !Ref NodeType
         KeyName: !Ref KeyPair
         NetworkInterfaces:
           - DeviceIndex: 0
