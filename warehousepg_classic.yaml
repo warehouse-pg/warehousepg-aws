@@ -13,7 +13,6 @@ Metadata:
         Parameters:
           - AccessToken
           - DatabaseName
-          - SegmentsPerDisk
       - Label:
           default: Network
         Parameters:
@@ -25,7 +24,6 @@ Metadata:
       - Label:
           default: Storage
         Parameters:
-          - DataDisks
           - DiskEncrypted
           - DiskType
           - CoordinatorDiskSize
@@ -95,26 +93,6 @@ Parameters:
       Select an existing Amazon EC2 Key Pair. A Key Pair refers to the public
       and private keys used to access your nodes instead of a password.
     MinLength: '1'
-
-  DataDisks:
-    Type: Number
-    Description: The number of data disks (disk1, disk2, etc) on each Segment Node.
-    Default: 2
-    AllowedValues:
-      - 1
-      - 2
-      - 3
-      - 4
-
-  SegmentsPerDisk:
-    Type: Number
-    Description: The number of Segments per data disk on each Segment Node.
-    Default: 2
-    AllowedValues:
-      - 1
-      - 2
-      - 3
-      - 4
 
   DiskEncrypted:
     Type: String
@@ -227,7 +205,7 @@ Parameters:
       Minimum size set to 2000 because of the significant performance hit for
       smaller sized disks. Note: This parameter is ignored for Single-Node
       deployments.
-    Default: 2000
+    Default: 4000
     AllowedValues:
       - 2000
       - 3000
@@ -288,6 +266,11 @@ Parameters:
       - 64
 
 Mappings:
+  SegmentCountMapping:
+    'r6in.2xlarge': { SegmentCount: '2' }
+    'r6in.4xlarge': { SegmentCount: '4' }
+    'r6in.8xlarge': { SegmentCount: '8' }
+
   ClusterCountMapping:
     '0':  { ClusterCount: '1',  Timeout: '1200' }
     '2':  { ClusterCount: '3',  Timeout: '1200' }
@@ -322,6 +305,7 @@ Mappings:
     '60': { ClusterCount: '61', Timeout: '6840' }
     '62': { ClusterCount: '63', Timeout: '7020' }
     '64': { ClusterCount: '65', Timeout: '7200' }
+
   ReleaseMapping:
     UserInfo:
       Admin: gpadmin
@@ -331,14 +315,10 @@ Mappings:
 Conditions:
   PublicIP: !Equals [!Ref InternetAccess, 'True']
   MultiNodes: !Not [!Equals [!Ref SegmentNodeCount, '0']]
-  HasDataDisk2: !Or
-    - !Equals [!Ref DataDisks, '2']
-    - !Equals [!Ref DataDisks, '3']
-    - !Equals [!Ref DataDisks, '4']
-  HasDataDisk3: !Or
-    - !Equals [!Ref DataDisks, '3']
-    - !Equals [!Ref DataDisks, '4']
-  HasDataDisk4: !Equals [!Ref DataDisks, '4']
+  HasDataDisk4: !Or
+    - !Equals [!FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ] , '4']
+    - !Equals [!FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ] , '8']
+  HasDataDisk8: !Equals [!FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ] , '8']
 
 Resources:
 
@@ -481,20 +461,18 @@ Resources:
               VolumeType: !Ref DiskType
               Encrypted: !Ref DiskEncrypted
           - !If
-            - HasDataDisk2
-            - !If
-              - MultiNodes
-              - DeviceName: /dev/sdc
-                NoDevice: 'true'
-              - DeviceName: /dev/sdc
-                Ebs:
-                  VolumeSize: !Ref CoordinatorDiskSize
-                  DeleteOnTermination: true
-                  VolumeType: !Ref DiskType
-                  Encrypted: !Ref DiskEncrypted
-            - !Ref AWS::NoValue
+            - MultiNodes
+            - DeviceName: /dev/sdc
+              NoDevice: 'true'
+            - DeviceName: /dev/sdc
+              Ebs:
+                VolumeSize: !Ref CoordinatorDiskSize
+                DeleteOnTermination: true
+                VolumeType: !Ref DiskType
+                Encrypted: !Ref DiskEncrypted
+          - !Ref AWS::NoValue
           - !If
-            - HasDataDisk3
+            - HasDataDisk4
             - !If
               - MultiNodes
               - DeviceName: /dev/sdd
@@ -513,6 +491,58 @@ Resources:
               - DeviceName: /dev/sde
                 NoDevice: 'true'
               - DeviceName: /dev/sde
+                Ebs:
+                  VolumeSize: !Ref CoordinatorDiskSize
+                  DeleteOnTermination: true
+                  VolumeType: !Ref DiskType
+                  Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk8
+            - !If
+              - MultiNodes
+              - DeviceName: /dev/sdf
+                NoDevice: 'true'
+              - DeviceName: /dev/sdf
+                Ebs:
+                  VolumeSize: !Ref CoordinatorDiskSize
+                  DeleteOnTermination: true
+                  VolumeType: !Ref DiskType
+                  Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk8
+            - !If
+              - MultiNodes
+              - DeviceName: /dev/sdg
+                NoDevice: 'true'
+              - DeviceName: /dev/sdg
+                Ebs:
+                  VolumeSize: !Ref CoordinatorDiskSize
+                  DeleteOnTermination: true
+                  VolumeType: !Ref DiskType
+                  Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk8
+            - !If
+              - MultiNodes
+              - DeviceName: /dev/sdh
+                NoDevice: 'true'
+              - DeviceName: /dev/sdh
+                Ebs:
+                  VolumeSize: !Ref CoordinatorDiskSize
+                  DeleteOnTermination: true
+                  VolumeType: !Ref DiskType
+                  Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk8
+            - !If
+              - MultiNodes
+              - DeviceName: /dev/sdi
+                NoDevice: 'true'
+              - DeviceName: /dev/sdi
                 Ebs:
                   VolumeSize: !Ref CoordinatorDiskSize
                   DeleteOnTermination: true
@@ -558,7 +588,7 @@ Resources:
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
-                echo 'SEGMENTS_PER_DISK="${SegmentsPerDisk}"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENTS_PER_DISK="1"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -574,6 +604,7 @@ Resources:
                 #temporary password used only to exchange ssh keys
                 AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
+                DataDisks: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
 
   CoordinatorNode:
     Type: AWS::EC2::Instance
@@ -602,17 +633,14 @@ Resources:
               DeleteOnTermination: true
               VolumeType: !Ref DiskType
               Encrypted: !Ref DiskEncrypted
+          - DeviceName: /dev/sdc
+            Ebs:
+              VolumeSize: !Ref SegmentDiskSize
+              DeleteOnTermination: true
+              VolumeType: !Ref DiskType
+              Encrypted: !Ref DiskEncrypted
           - !If
-            - HasDataDisk2
-            - DeviceName: /dev/sdc
-              Ebs:
-                VolumeSize: !Ref SegmentDiskSize
-                DeleteOnTermination: true
-                VolumeType: !Ref DiskType
-                Encrypted: !Ref DiskEncrypted
-            - !Ref AWS::NoValue
-          - !If
-            - HasDataDisk3
+            - HasDataDisk4
             - DeviceName: /dev/sdd
               Ebs:
                 VolumeSize: !Ref SegmentDiskSize
@@ -623,6 +651,43 @@ Resources:
           - !If
             - HasDataDisk4
             - DeviceName: /dev/sde
+              Ebs:
+                VolumeSize: !Ref SegmentDiskSize
+                DeleteOnTermination: true
+                VolumeType: !Ref DiskType
+                Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk8
+            - DeviceName: /dev/sdf
+              Ebs:
+                VolumeSize: !Ref SegmentDiskSize
+                DeleteOnTermination: true
+                VolumeType: !Ref DiskType
+                Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk8
+            - DeviceName: /dev/sdg
+              Ebs:
+                VolumeSize: !Ref SegmentDiskSize
+                DeleteOnTermination: true
+                VolumeType: !Ref DiskType
+                Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+
+          - !If
+            - HasDataDisk8
+            - DeviceName: /dev/sdh
+              Ebs:
+                VolumeSize: !Ref SegmentDiskSize
+                DeleteOnTermination: true
+                VolumeType: !Ref DiskType
+                Encrypted: !Ref DiskEncrypted
+            - !Ref AWS::NoValue
+          - !If
+            - HasDataDisk8
+            - DeviceName: /dev/sdi
               Ebs:
                 VolumeSize: !Ref SegmentDiskSize
                 DeleteOnTermination: true
@@ -668,7 +733,7 @@ Resources:
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
-                echo 'SEGMENTS_PER_DISK="${SegmentsPerDisk}"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENTS_PER_DISK="1"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -684,6 +749,7 @@ Resources:
                 #temporary password used only to exchange ssh keys
                 AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
+                DataDisks: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
 
   SegmentNodes:
     Type: AWS::EC2::EC2Fleet
