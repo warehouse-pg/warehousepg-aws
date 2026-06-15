@@ -226,6 +226,7 @@ Mappings:
     '60': { ClusterCount: '61', Timeout: '6840' }
     '62': { ClusterCount: '63', Timeout: '7020' }
     '64': { ClusterCount: '65', Timeout: '7200' }
+
   ReleaseMapping:
     UserInfo:
       Admin: gpadmin
@@ -248,60 +249,6 @@ Resources:
       Timeout: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, Timeout]
       Count: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
 
-  S3FilesRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - elasticfilesystem.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      Path: /
-      Policies:
-        - PolicyName: S3FilesAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Sid: S3BucketPermissions
-                Effect: Allow
-                Resource: !GetAtt S3StorageBucket.Arn
-                Action:
-                  - s3:ListBucket
-                  - s3:ListBucketVersions
-              - Sid: S3ObjectPermissions
-                Effect: Allow
-                Resource: !Sub "${S3StorageBucket.Arn}/*"
-                Action:
-                  - s3:AbortMultipartUpload
-                  - s3:DeleteObject*
-                  - s3:GetObject*
-                  - s3:List*
-                  - s3:PutObject*
-              - Sid: EventBridgeManage
-                Resource: !Sub "arn:aws:events:*:${AWS::AccountId}:rule/DO-NOT-DELETE-S3-Files*"
-                Effect: Allow
-                Action:
-                  - events:DeleteRule
-                  - events:DisableRule
-                  - events:EnableRule
-                  - events:PutRule
-                  - events:PutTargets
-                  - events:RemoveTargets
-                Condition:
-                  StringEquals:
-                    events:ManagedBy: elasticfilesystem.amazonaws.com
-              - Sid: EventBridgeRead
-                Resource: "*"
-                Effect: Allow
-                Action:
-                  - events:DescribeRule
-                  - events:ListRuleNamesByTarget
-                  - events:ListRules
-                  - events:ListTargetsByRule
   NodeIAMRole:
     Type: AWS::IAM::Role
     Properties:
@@ -351,6 +298,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
+                  - lambda:InvokeFunction
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -360,6 +308,7 @@ Resources:
       Roles:
         - !Ref NodeIAMRole
 
+  #**************** Security Groups *******************
   PrivateSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -435,6 +384,7 @@ Resources:
       ToPort: 65535
       SourceSecurityGroupId: !Ref PrivateSecurityGroup
 
+  #**************** S3 Files *******************
   S3StorageBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -450,12 +400,79 @@ Resources:
             AbortIncompleteMultipartUpload:
               DaysAfterInitiation: 1
 
+  S3FilesRole:
+    Type: AWS::IAM::Role
+    DependsOn: S3StorageBucket
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - elasticfilesystem.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: S3FilesAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: S3BucketPermissions
+                Effect: Allow
+                Resource: !GetAtt S3StorageBucket.Arn
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+              - Sid: S3ObjectPermissions
+                Effect: Allow
+                Resource: !Sub "${S3StorageBucket.Arn}/*"
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:DeleteObject*
+                  - s3:GetObject*
+                  - s3:List*
+                  - s3:PutObject*
+              - Sid: EventBridgeManage
+                Resource: "*"
+                Effect: Allow
+                Action:
+                  - events:DeleteRule
+                  - events:DisableRule
+                  - events:EnableRule
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+              - Sid: EventBridgeRead
+                Resource: "*"
+                Effect: Allow
+                Action:
+                  - events:DescribeRule
+                  - events:ListRuleNamesByTarget
+                  - events:ListRules
+                  - events:ListTargetsByRule
+
+  EmptyBucketLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: S3FilesRole
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-EmptyBucketLambda"
+      RetentionInDays: 1
+
+  EmptyBucketOnDelete:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: 
+      - S3FilesRole
+      - EmptyBucketLambdaLogGroup
+    Properties:
+      ServiceToken: !GetAtt EmptyBucketLambda.Arn
+      BucketName: !Ref S3StorageBucket
+      BucketArn: !GetAtt S3StorageBucket.Arn
+
   S3FileSystem:
     Type: AWS::S3Files::FileSystem
-    DependsOn: 
-      - S3StorageBucket
-      - S3FilesRole
-      - EmptyBucketOnDelete
+    DependsOn: EmptyBucketOnDelete
     Properties:
       Bucket: !GetAtt S3StorageBucket.Arn
       RoleArn: !GetAtt S3FilesRole.Arn
@@ -472,69 +489,89 @@ Resources:
         - !Ref PrivateSecurityGroup
 
   EmptyBucketLambda:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-EmptyBucketLambda"
-      Runtime: python3.12
-      Handler: index.handler
-      Role: !GetAtt NodeIAMRole.Arn
-      Timeout: 300
-      Code:
-        ZipFile: |
-           import boto3
-           import cfnresponse
-           from concurrent.futures import ThreadPoolExecutor, as_completed
-           
-           def delete_batch(s3, bucket, objects):
-               if not objects:
-                   return 0, []
-               resp = s3.delete_objects(Bucket=bucket, Delete={'Objects': objects})
-               return len(resp.get('Deleted', [])), resp.get('Errors', [])
-             
-           def handler(event, context):
-               if event['RequestType'] == 'Delete':
-                   bucket = event['ResourceProperties']['BucketName']
-                   s3 = boto3.client('s3')
-                   total_deleted = 0
-                   try:
-                       paginator = s3.get_paginator('list_object_versions')
-                       futures = []
-                       with ThreadPoolExecutor(max_workers=10) as executor:
-                           for page in paginator.paginate(Bucket=bucket):
-                               objects = [
-                                   {'Key': v['Key'], 'VersionId': v['VersionId']}
-                                   for v in page.get('Versions', []) + page.get('DeleteMarkers', [])
-                               ]
-                               for i in range(0, len(objects), 1000):
-                                   futures.append(executor.submit(delete_batch, s3, bucket, objects[i:i+1000]))
-                       for f in as_completed(futures):
-                           deleted, errors = f.result()
-                           total_deleted += deleted
-                           for e in errors:
-                               print(f"Error: {e['Key']}: {e['Code']} - {e['Message']}")
-                       print(f"Complete - deleted: {total_deleted}")
-                   except Exception as e:
-                       print(f"Exception: {e}")
-                       cfnresponse.send(event, context, cfnresponse.FAILED, {})
-                       return
-               cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+      Type: AWS::Lambda::Function
+      Properties:
+        FunctionName: !Sub "${AWS::StackName}-EmptyBucketLambda"
+        Runtime: python3.12
+        Handler: index.handler
+        Role: !GetAtt NodeIAMRole.Arn
+        Timeout: 300
+        Code:
+          ZipFile: |
+            import boto3
+            import cfnresponse
+            import json
+            import time
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+  
+            def delete_batch(s3, bucket, objects):
+                if not objects:
+                    return 0, []
+                resp = s3.delete_objects(Bucket=bucket, Delete={'Objects': objects})
+                return len(resp.get('Deleted', [])), resp.get('Errors', [])
+  
+            def handler(event, context):
+                original_event = event.get('_original_event', event)
+  
+                if event['RequestType'] == 'Delete':
+                    bucket = event['ResourceProperties']['BucketName']
+                    bucket_arn = event['ResourceProperties'].get('BucketArn', '')
+  
+                    s3 = boto3.client('s3')
+                    lambda_client = boto3.client('lambda')
+                    total_deleted = event.get('_total_deleted', 0)
+                    continuation_token = event.get('_continuation_token')
+  
+                    paginate_kwargs = {'Bucket': bucket}
+                    if continuation_token:
+                        paginate_kwargs['PaginationConfig'] = {'StartingToken': continuation_token}
+  
+                    paginator = s3.get_paginator('list_object_versions')
+                    page_iterator = paginator.paginate(**paginate_kwargs)
+                    next_token = None
+  
+                    try:
+                        futures = []
+                        with ThreadPoolExecutor(max_workers=50) as executor:
+                            for page in page_iterator:
+                                if context.get_remaining_time_in_millis() < 45000:
+                                    next_token = page_iterator.resume_token
+                                    break
+                                objects = [
+                                    {'Key': v['Key'], 'VersionId': v['VersionId']}
+                                    for v in page.get('Versions', []) + page.get('DeleteMarkers', [])
+                                ]
+                                for i in range(0, len(objects), 1000):
+                                    futures.append(executor.submit(delete_batch, s3, bucket, objects[i:i+1000]))
+                        for f in as_completed(futures):
+                            deleted, errors = f.result()
+                            total_deleted += deleted
+                            for e in errors:
+                                print(f"Error: {e['Key']}: {e['Code']} - {e['Message']}")
+                    except Exception as e:
+                        print(f"Exception emptying bucket: {e}")
+                        cfnresponse.send(original_event, context, cfnresponse.FAILED, {})
+                        return
+  
+                    if next_token:
+                        print(f"Deleted {total_deleted} so far, invoking continuation...")
+                        lambda_client.invoke(
+                            FunctionName=context.function_name,
+                            InvocationType='Event',
+                            Payload=json.dumps({
+                                **event,
+                                '_original_event': original_event,
+                                '_continuation_token': next_token,
+                                '_total_deleted': total_deleted,
+                            }),
+                        )
+                        return
+  
+                    print(f"Complete - deleted {total_deleted} objects.")
+  
+                cfnresponse.send(original_event, context, cfnresponse.SUCCESS, {})
 
-  EmptyBucketLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    DependsOn: EmptyBucketLambda
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-EmptyBucketLambda"
-      RetentionInDays: 1
-
-  EmptyBucketOnDelete:
-    Type: AWS::CloudFormation::CustomResource
-    DependsOn: 
-      - S3StorageBucket
-      - EmptyBucketLambdaLogGroup
-    Properties:
-      ServiceToken: !GetAtt EmptyBucketLambda.Arn
-      BucketName: !Ref S3StorageBucket
-
+  #**************** EFS *******************
   EFSFileSystem:
     Type: AWS::EFS::FileSystem
     Properties:
@@ -554,6 +591,7 @@ Resources:
         - !Ref PublicSecurityGroup
         - !Ref PrivateSecurityGroup
 
+  #**************** Coordinator *******************
   CoordinatorNodeLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -633,6 +671,7 @@ Resources:
         - Key: Name
           Value: !Join ['-', [!Ref AWS::StackName, cdw]]
 
+  #**************** Segment Nodes *******************
   SegmentNodesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Condition: MultiNodes
