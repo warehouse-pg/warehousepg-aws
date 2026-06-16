@@ -30,7 +30,13 @@ Note: make sure the subnets are in the VPC you choose as parameters. AWS does no
 ![Architecture](images/warehousepg_architecture_detailed.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging local SSD for caching, S3Files for data storage, and EFS for database files other than data.
 
-*Note: This architecture causes DROP statements to execute much more slowly than the Classic deployment. This is because the DROP behavior checks for fork files which gets turned into an S3 API call.*
+* No segment mirroring
+* Data stored in S3: 3+ Availability Zones, 11 9's of availability
+* Can sustain an AZ failure by deploying new cluster in another AZ in the same Region
+* Over 30% less expensive than Classic Template
+* Slower initial queries and data loading
+* Local NVMe caching so consistent performance even with a busy cluster
+* Same query performance as Classic Template
 
 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg.yaml` in this repo.
 ![CFT1](/images/cft1.png)
@@ -53,6 +59,15 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 ### CloudFormation Classic Stack
 ![Architecture](/images/warehousepg_classic_architecture.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging EBS storage and databaes mirroring.
+
+* Segment mirroring
+* Data stored in EBS: 1 Availability Zone, 99.9% of availability
+* Can NOT sustain an AZ failure
+* Over 30% MORE expensive than new Template
+* No caching so initial queries and data loading are quicker than new template
+* EBS bursting can be exhausted with busy cluster and performance slows down
+* Same query performance as new Template
+
 
 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic.yaml` in this repo.
 ![CFT1](/images/cft1.png)
