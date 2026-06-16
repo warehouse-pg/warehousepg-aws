@@ -39,6 +39,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * Local NVMe caching so consistent performance even with a busy cluster
 * Same query performance as Classic Template
 
+#### Deployment
 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg.yaml` in this repo.
 ![CFT1](/images/cft1.png)
 2. Fill out the parameters
@@ -70,7 +71,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * EBS bursting can be exhausted with busy cluster and performance slows down
 * Same query performance as new Template
 
-
+#### Deployment
 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic.yaml` in this repo.
 ![CFT1](/images/cft1.png)
 2. Fill out the parameters
