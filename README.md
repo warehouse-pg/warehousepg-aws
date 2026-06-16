@@ -30,6 +30,7 @@ Note: make sure the subnets are in the VPC you choose as parameters. AWS does no
 ![Architecture](images/warehousepg_architecture_detailed.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging local SSD for caching, S3Files for data storage, and EFS for database files other than data.
 
+#### Overview 
 * No segment mirroring
 * Data stored in S3: 3+ Availability Zones, 11 9's of availability
 * Can sustain an AZ failure by deploying new cluster in another AZ in the same Region
@@ -60,6 +61,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 ![Architecture](/images/warehousepg_classic_architecture.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging EBS storage and databaes mirroring.
 
+#### Overview 
 * Segment mirroring
 * Data stored in EBS: 1 Availability Zone, 99.9% of availability
 * Can NOT sustain an AZ failure
