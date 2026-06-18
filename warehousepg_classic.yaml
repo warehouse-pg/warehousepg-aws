@@ -14,6 +14,14 @@ Metadata:
           - AccessToken
           - DatabaseName
       - Label:
+          default: Compute
+        Parameters:
+          - NodeType
+          - SegmentNodeCount
+          - AMI
+          - KeyPair
+          - TimeZone
+      - Label:
           default: Network
         Parameters:
           - InternetAccess
@@ -28,14 +36,6 @@ Metadata:
           - DiskType
           - CoordinatorDiskSize
           - SegmentDiskSize
-      - Label:
-          default: All Nodes
-        Parameters:
-          - NodeType
-          - SegmentNodeCount
-          - AMI
-          - KeyPair
-          - TimeZone
 
 Parameters:
   S3Bucket:

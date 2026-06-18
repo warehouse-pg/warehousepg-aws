@@ -149,7 +149,7 @@ create()
 	#s3 data directory
 	echo "mkdir ${s3_data_dir}"
 	mkdir ${s3_data_dir}
-	s3_file_system_id=$(aws s3files list-file-systems --region ${REGION} --query "fileSystems[?bucket=='${DATA_BUCKET}'].{fileSystemId:fileSystemId}" --output text)
+	s3_file_system_id=$(aws s3files list-file-systems --region ${REGION} --query "fileSystems[?bucket=='${DATA_BUCKET}' && name=='${STACK}-S3FileSystem'].{fileSystemId:fileSystemId}" --output text)
 	echo "${s3_file_system_id} ${s3_data_dir} s3files _netdev,noauto,fsc,noatime,nodev 0 0" >> /etc/fstab
 
 	#fsc tells the mount to use the filesystem cache

@@ -100,7 +100,6 @@ get_aws_metadata()
 	sed -i "/REGION/ d" ${INSTALL_DIR}/${CONFIG_FILE}
 	sed -i "/INSTANCE_ID/ d" ${INSTALL_DIR}/${CONFIG_FILE}
 	sed -i "/KEY_PAIR/ d" ${INSTALL_DIR}/${CONFIG_FILE}
-	sed -i "/DATA_BUCKET/ d" ${INSTALL_DIR}/${CONFIG_FILE}
 
 	REGION=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
 	echo "REGION=\"${REGION}\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
@@ -115,9 +114,6 @@ get_aws_metadata()
 		sed -i "/NODE_INDEX/ d" ${INSTALL_DIR}/${CONFIG_FILE}
 		echo "NODE_INDEX=\"0\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
 	fi
-
-	DATA_BUCKET="arn:aws:s3:::${STACK}-s3files"
-	echo "DATA_BUCKET=\"${DATA_BUCKET}\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
 }
 check_all_nodes()
 {

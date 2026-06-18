@@ -14,6 +14,14 @@ Metadata:
           - AccessToken
           - DatabaseName
       - Label:
+          default: Compute
+        Parameters:
+          - NodeType
+          - SegmentNodeCount
+          - AMI
+          - KeyPair
+          - TimeZone
+      - Label:
           default: Network
         Parameters:
           - InternetAccess
@@ -22,15 +30,15 @@ Metadata:
           - PrivateSubnet
           - PublicSubnet
       - Label:
-          default: Nodes
+          default: Storage
         Parameters:
-          - NodeType
-          - SegmentNodeCount
-          - AMI
-          - KeyPair
-          - TimeZone
-
+          - S3StorageBucket
 Parameters:
+  S3StorageBucket:
+    Type: String
+    Description: Existing bucket for WarehousePG data storage.
+    Default: fcto-warehousepg-data
+
   DeploymentBucket:
     Type: String
     Description: This bucket contains the unzipped scripts used for completing the deployment of WarehousePG
@@ -282,6 +290,8 @@ Resources:
                   - s3:DeleteObject
                   - s3:DeleteObjectVersion
                   - s3:GetBucketLocation
+                  - s3:PutBucketVersioning
+                  - s3:PutLifeCycleConfiguration
                   - s3files:ClientMount
                   - s3files:ClientWrite
                   - s3files:ClientRootAccess
@@ -299,6 +309,16 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                   - lambda:InvokeFunction
+                  - events:DeleteRule
+                  - events:DisableRule
+                  - events:EnableRule
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:RemoveTargets
+                  - events:DescribeRule
+                  - events:ListRuleNamesByTarget
+                  - events:ListRules
+                  - events:ListTargetsByRule
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -316,7 +336,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Join ['-', [!Ref AWS::StackName, PrivateSecurityGroup]]
+          Value: !Sub "${AWS::StackName}-PrivateSecurityGroup"
 
   PrivateSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -333,7 +353,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Join ['-', [!Ref AWS::StackName, PublicSecurityGroup]]
+          Value: !Sub "${AWS::StackName}-PublicSecurityGroup"
 
   PublicSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -385,24 +405,126 @@ Resources:
       SourceSecurityGroupId: !Ref PrivateSecurityGroup
 
   #**************** S3 Files *******************
-  S3StorageBucket:
-    Type: AWS::S3::Bucket
+  EnableVersioning:
+    Type: AWS::CloudFormation::CustomResource
     Properties:
-      BucketName: !Join ['-', [!Ref AWS::StackName, s3files]]
-      VersioningConfiguration:
-        Status: Enabled
-      LifecycleConfiguration:
-        Rules:
-          - Id: ExpireOldVersions
-            Status: Enabled
-            NoncurrentVersionExpiration:
-              NoncurrentDays: 1
-            AbortIncompleteMultipartUpload:
-              DaysAfterInitiation: 1
+      ServiceToken: !GetAtt VersioningLambda.Arn
+      BucketName: !Ref S3StorageBucket
+
+  VersioningLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-versioning"
+      RetentionInDays: 30
+
+  VersioningLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-versioning"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt NodeIAMRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+            
+          def handler(event, context):
+              bucket = event['ResourceProperties']['BucketName']
+              try:
+                  if event['RequestType'] in ('Create', 'Update'):
+                      s3 = boto3.client('s3')
+                      
+                      s3.put_bucket_versioning(
+                          Bucket=bucket,
+                          VersioningConfiguration={'Status': 'Enabled'}
+                      )
+                      
+                      s3.put_bucket_lifecycle_configuration(
+                          Bucket=bucket,
+                          LifecycleConfiguration={
+                              'Rules': [
+                                  {
+                                      'ID': 'expire-noncurrent-versions',
+                                      'Status': 'Enabled',
+                                      'Filter': {'Prefix': ''},
+                                      'NoncurrentVersionExpiration': {'NoncurrentDays': 1},
+                                      'AbortIncompleteMultipartUpload': {'DaysAfterInitiation': 1}
+                                  }
+                              ]
+                          }
+                      )
+
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
+
+  # Delete S3 Files sets retention policy to delete the files for the Stack asynchronously
+  DeleteS3Files:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt DeleteS3FilesLambda.Arn
+      BucketName: !Ref S3StorageBucket
+      Prefix: !Sub
+        - "${AWS::StackName}-${StackUUID}/"
+        - StackUUID: !Select [2, !Split ['/', !Ref 'AWS::StackId' ]]
+
+  DeleteS3FilesLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-delete-s3files"
+      RetentionInDays: 30
+
+  DeleteS3FilesLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-delete-s3files"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt NodeIAMRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          
+          def handler(event, context):
+              s3 = boto3.client('s3')
+              bucket = event['ResourceProperties']['BucketName']
+              prefix = event['ResourceProperties']['Prefix']
+            
+              try:
+                  if event['RequestType'] == 'Delete':
+                      rule_prefix = prefix.rstrip('/')
+
+                      s3.put_bucket_lifecycle_configuration(
+                          Bucket=bucket,
+                          LifecycleConfiguration={
+                              'Rules': [
+                                  {
+                                      'ID': f'{bucket}-{rule_prefix}-expire-objects',
+                                      'Status': 'Enabled',
+                                      'Filter': {'Prefix': prefix},
+                                      'Expiration': {'Days': 1},
+                                      'NoncurrentVersionExpiration': {'NoncurrentDays': 1},
+                                      'AbortIncompleteMultipartUpload': {'DaysAfterInitiation': 1}
+                                  },
+                                  {
+                                      'ID': f'{bucket}-{rule_prefix}-expire-delete-markers',
+                                      'Status': 'Enabled',
+                                      'Filter': {'Prefix': prefix},
+                                      'Expiration': {'ExpiredObjectDeleteMarker': True}
+                                  }
+                              ]
+                          }
+                      )
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
 
   S3FilesRole:
     Type: AWS::IAM::Role
-    DependsOn: S3StorageBucket
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -421,13 +543,13 @@ Resources:
             Statement:
               - Sid: S3BucketPermissions
                 Effect: Allow
-                Resource: !GetAtt S3StorageBucket.Arn
+                Resource: !Sub "arn:aws:s3:::${S3StorageBucket}"
                 Action:
                   - s3:ListBucket
                   - s3:ListBucketVersions
               - Sid: S3ObjectPermissions
                 Effect: Allow
-                Resource: !Sub "${S3StorageBucket.Arn}/*"
+                Resource: !Sub "arn:aws:s3:::${S3StorageBucket}/*"
                 Action:
                   - s3:AbortMultipartUpload
                   - s3:DeleteObject*
@@ -453,123 +575,94 @@ Resources:
                   - events:ListRules
                   - events:ListTargetsByRule
 
-  EmptyBucketLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    DependsOn: S3FilesRole
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-EmptyBucketLambda"
-      RetentionInDays: 1
-
-  EmptyBucketOnDelete:
-    Type: AWS::CloudFormation::CustomResource
-    DependsOn: 
-      - S3FilesRole
-      - EmptyBucketLambdaLogGroup
-    Properties:
-      ServiceToken: !GetAtt EmptyBucketLambda.Arn
-      BucketName: !Ref S3StorageBucket
-      BucketArn: !GetAtt S3StorageBucket.Arn
-
   S3FileSystem:
     Type: AWS::S3Files::FileSystem
-    DependsOn: EmptyBucketOnDelete
+    DeletionPolicy: Retain # deleted with Lambda to use force delete
+    DependsOn: DeleteS3Files
     Properties:
-      Bucket: !GetAtt S3StorageBucket.Arn
+      Bucket: !Sub "arn:aws:s3:::${S3StorageBucket}"
       RoleArn: !GetAtt S3FilesRole.Arn
-      Prefix: s3files/
+      Prefix: !Sub
+        - "${AWS::StackName}-${StackUUID}/"
+        - StackUUID: !Select [2, !Split ['/', !Ref 'AWS::StackId' ]]
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-S3FileSystem"
+
+  # Needed for force delete on the filesystem
+  DeleteS3FileSystem:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:     
+      ServiceToken: !GetAtt DeleteS3FileSystemLambda.Arn
+      FileSystemId: !Ref S3FileSystem
+    
+  DeleteS3FileSystemLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-delete-s3filesystem"
+      RetentionInDays: 30
+
+  DeleteS3FileSystemLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-delete-s3filesystem"
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt NodeIAMRole.Arn
+      Timeout: 300 
+      Code:
+        ZipFile: | 
+          import boto3
+          import cfnresponse
+          import logging 
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+    
+          def handler(event, context):
+              logger.info(f"Event: {event}")
+              request_type = event['RequestType']
+              filesystem_id = event.get('ResourceProperties', {}).get('FileSystemId')
+      
+              try: 
+                  if request_type != 'Delete':
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
+      
+                  if not filesystem_id:
+                      logger.warning("No FileSystemId provided, nothing to flush")
+                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                      return
+          
+                  client = boto3.client('s3files')
+          
+                  try:
+                      logger.info(f"Force deleting filesystem {filesystem_id}")
+                      client.delete_file_system(
+                          fileSystemId=filesystem_id,
+                          forceDelete=True
+                      )
+                      logger.info("Force delete successful")
+                  except client.exceptions.ResourceNotFoundException:
+                      logger.info("Filesystem not found, already deleted — skipping")
+  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+    
+              except Exception as e:
+                  logger.error(f"Unhandled error: {str(e)}", exc_info=True)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
 
   S3MountTarget:
     Type: AWS::S3Files::MountTarget
-    DependsOn: S3FileSystem
+    DependsOn: 
+      - S3FileSystem
+      - DeleteS3FileSystem
     Properties:
       FileSystemId: !Ref S3FileSystem
       SubnetId: !Ref PrivateSubnet
       SecurityGroups:
         - !Ref PublicSecurityGroup
         - !Ref PrivateSecurityGroup
-
-  EmptyBucketLambda:
-      Type: AWS::Lambda::Function
-      Properties:
-        FunctionName: !Sub "${AWS::StackName}-EmptyBucketLambda"
-        Runtime: python3.12
-        Handler: index.handler
-        Role: !GetAtt NodeIAMRole.Arn
-        Timeout: 300
-        Code:
-          ZipFile: |
-            import boto3
-            import cfnresponse
-            import json
-            import time
-            from concurrent.futures import ThreadPoolExecutor, as_completed
-  
-            def delete_batch(s3, bucket, objects):
-                if not objects:
-                    return 0, []
-                resp = s3.delete_objects(Bucket=bucket, Delete={'Objects': objects})
-                return len(resp.get('Deleted', [])), resp.get('Errors', [])
-  
-            def handler(event, context):
-                original_event = event.get('_original_event', event)
-  
-                if event['RequestType'] == 'Delete':
-                    bucket = event['ResourceProperties']['BucketName']
-                    bucket_arn = event['ResourceProperties'].get('BucketArn', '')
-  
-                    s3 = boto3.client('s3')
-                    lambda_client = boto3.client('lambda')
-                    total_deleted = event.get('_total_deleted', 0)
-                    continuation_token = event.get('_continuation_token')
-  
-                    paginate_kwargs = {'Bucket': bucket}
-                    if continuation_token:
-                        paginate_kwargs['PaginationConfig'] = {'StartingToken': continuation_token}
-  
-                    paginator = s3.get_paginator('list_object_versions')
-                    page_iterator = paginator.paginate(**paginate_kwargs)
-                    next_token = None
-  
-                    try:
-                        futures = []
-                        with ThreadPoolExecutor(max_workers=50) as executor:
-                            for page in page_iterator:
-                                if context.get_remaining_time_in_millis() < 45000:
-                                    next_token = page_iterator.resume_token
-                                    break
-                                objects = [
-                                    {'Key': v['Key'], 'VersionId': v['VersionId']}
-                                    for v in page.get('Versions', []) + page.get('DeleteMarkers', [])
-                                ]
-                                for i in range(0, len(objects), 1000):
-                                    futures.append(executor.submit(delete_batch, s3, bucket, objects[i:i+1000]))
-                        for f in as_completed(futures):
-                            deleted, errors = f.result()
-                            total_deleted += deleted
-                            for e in errors:
-                                print(f"Error: {e['Key']}: {e['Code']} - {e['Message']}")
-                    except Exception as e:
-                        print(f"Exception emptying bucket: {e}")
-                        cfnresponse.send(original_event, context, cfnresponse.FAILED, {})
-                        return
-  
-                    if next_token:
-                        print(f"Deleted {total_deleted} so far, invoking continuation...")
-                        lambda_client.invoke(
-                            FunctionName=context.function_name,
-                            InvocationType='Event',
-                            Payload=json.dumps({
-                                **event,
-                                '_original_event': original_event,
-                                '_continuation_token': next_token,
-                                '_total_deleted': total_deleted,
-                            }),
-                        )
-                        return
-  
-                    print(f"Complete - deleted {total_deleted} objects.")
-  
-                cfnresponse.send(original_event, context, cfnresponse.SUCCESS, {})
 
   #**************** EFS *******************
   EFSFileSystem:
@@ -579,7 +672,7 @@ Resources:
       ThroughputMode: elastic
       FileSystemTags:
         - Key: Name
-          Value: !Join ['-', [!Ref AWS::StackName, EFSFileSystem]]
+          Value: !Sub "${AWS::StackName}-EFSFileSystem"
 
   EFSMountTarget:
     Type: AWS::EFS::MountTarget
@@ -641,6 +734,7 @@ Resources:
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SEGS_PER_NODE="${SegsPerNode}"' >> /opt/edb/warehousepg/config.sh
+                echo 'DATA_BUCKET="arn:aws:s3:::${S3StorageBucket}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -669,7 +763,7 @@ Resources:
         Version: '1'
       Tags:
         - Key: Name
-          Value: !Join ['-', [!Ref AWS::StackName, cdw]]
+          Value: !Sub "${AWS::StackName}-cdw"
 
   #**************** Segment Nodes *******************
   SegmentNodesLaunchTemplate:
@@ -722,6 +816,7 @@ Resources:
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SEGS_PER_NODE="${SegsPerNode}"' >> /opt/edb/warehousepg/config.sh
+                echo 'DATA_BUCKET="arn:aws:s3:::${S3StorageBucket}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
