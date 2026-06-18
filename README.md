@@ -53,7 +53,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `DatabaseName`: name of the default database name (PGDATABASE) created
 
 **Compute**
-- `NodeType`: specifies the IntancesType in AWS. This needs to be an instance type with a local SSD drive.
+- `NodeType`: specifies the IntancesType in AWS. The instance type has a local SSD drive for caching. 
 - `SegmentNodeCount`: 0 to 48 nodes in increments of 2 nodes can be deployed. Setting 0 means it will be a single node and the coordinator and segments will reside there. Setting 2 or larger will enable mirroring and deploy on all nodes.
 - `AMI`: The existing AWS AMI ID that is valid for your region. The default is the AMI for Rocky Linux 9 and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack and ideally, use Rocky Linux 9 as that has been tested.
 - `KeyPair`: specifies the existing KeyPair for ssh access to the coordinator node.
@@ -72,7 +72,6 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 #### Delete Stack
 Deleting a Stack will remove all of the resources provisioned including the data. AWS recommends using Lifecycle rule to remove a large number of files from a bucket so when a Stack is deleted, a Lifecycle rule is created to remove the bucket path used for the Stack after 1 day.
 
-Data is stored in an S3 Mount Target which is in a S3 FileSystem. The S3 FileSystem provides caching on top of S3 storage. 
 ### CloudFormation Classic Stack
 ![Architecture](/images/warehousepg_classic_architecture.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging EBS storage and databaes mirroring.
@@ -100,7 +99,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `DatabaseName`: name of the default database name (PGDATABASE) created
 
 **Compute**
-- `NodeType`: specifies InstanceType in AWS.
+- `NodeType`: specifies InstanceType in AWS. The instance type uses EBS storage only.
 - `SegmentNodeCount`: 0 to 48 nodes in increments of 2 nodes can be deployed. Setting 0 means it will be a single node and the coordinator and segments will reside there. Setting 2 or larger will enable mirroring and deploy on all nodes.
 - `AMI`: The existing AWS AMI ID that is valid for your region. The default is the AMI for Rocky Linux 9 and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack and ideally, use Rocky Linux 9 as that has been tested.
 - `KeyPair`: specifies the existing KeyPair for ssh access to the coordinator node.
