@@ -4,6 +4,9 @@ set -e
 
 bucket="fcto-s3-01"
 
+#outpost
+#bucket="whpg-deploy"
+
 count=$(aws s3 ls s3://${bucket} 2>/dev/null  | wc -l)
 
 if [ "${count}" -eq "0" ]; then
