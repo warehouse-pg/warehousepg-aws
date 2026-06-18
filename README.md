@@ -67,7 +67,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `PublicSubnet`: Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing Private subnet here if you don't wish to allow Internet access to the coordinator node.
 
 **Storage**
-- `S3StorageBucket`: The existing S3 bucket where the data will reside. You can have multiple clusters using the same bucket but each bucket will have a unique S3 FileSystem.
+- `S3StorageBucket`: The existing S3 bucket where the data will reside. You can have multiple clusters using the same bucket but each bucket will have a unique S3 FileSystem. Versioning will automatically be enabled in the bucket with a policy of expiring non-current file versions after 1 day. An S3 file system will be created for this Stack as well as a mount target which will be used by the EC2 instances for the cluster.
 
 #### Delete Stack
 Deleting a Stack will remove all of the resources provisioned including the data. AWS recommends using Lifecycle rule to remove a large number of files from a bucket so when a Stack is deleted, a Lifecycle rule is created to remove the bucket path used for the Stack after 1 day.
