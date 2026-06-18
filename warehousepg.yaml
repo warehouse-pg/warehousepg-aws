@@ -292,6 +292,7 @@ Resources:
                   - s3:GetBucketLocation
                   - s3:PutBucketVersioning
                   - s3:PutLifeCycleConfiguration
+                  - s3:GetLifeCycleConfiguration
                   - s3files:ClientMount
                   - s3files:ClientWrite
                   - s3files:ClientRootAccess
@@ -429,31 +430,48 @@ Resources:
         ZipFile: |
           import boto3
           import cfnresponse
+          import botocore.exceptions
             
           def handler(event, context):
               bucket = event['ResourceProperties']['BucketName']
+              s3 = boto3.client('s3')
               try:
                   if event['RequestType'] in ('Create', 'Update'):
-                      s3 = boto3.client('s3')
                       
                       s3.put_bucket_versioning(
                           Bucket=bucket,
                           VersioningConfiguration={'Status': 'Enabled'}
                       )
-                      
+
+                      new_rules = [ 
+                         
+                          {
+                              'ID': 'expire-noncurrent-versions',
+                              'Status': 'Enabled',
+                              'Filter': {'Prefix': ''},
+                              'NoncurrentVersionExpiration': {'NoncurrentDays': 1},
+                              'AbortIncompleteMultipartUpload': {'DaysAfterInitiation': 1}
+                          }
+                      ]
+ 
+                      try:
+                          existing = s3.get_bucket_lifecycle_configuration(Bucket=bucket) 
+                          existing_rules = existing.get('Rules', [])
+                      except botocore.exceptions.ClientError as e:
+                          if e.response['Error']['Code'] == 'NoSuchLifecycleConfiguration':
+                              existing_rules = []
+                          else:
+                              raise
+
+                      existing_ids = {r['ID'] for r in existing_rules}
+                      merged_rules = existing_rules + [
+                          r for r in new_rules if r['ID'] not in existing_ids
+                      ]
+
+
                       s3.put_bucket_lifecycle_configuration(
                           Bucket=bucket,
-                          LifecycleConfiguration={
-                              'Rules': [
-                                  {
-                                      'ID': 'expire-noncurrent-versions',
-                                      'Status': 'Enabled',
-                                      'Filter': {'Prefix': ''},
-                                      'NoncurrentVersionExpiration': {'NoncurrentDays': 1},
-                                      'AbortIncompleteMultipartUpload': {'DaysAfterInitiation': 1}
-                                  }
-                              ]
-                          }
+                          LifecycleConfiguration={'Rules': merged_rules}
                       )
 
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
@@ -488,6 +506,7 @@ Resources:
         ZipFile: |
           import boto3
           import cfnresponse
+          import botocore.exceptions
           
           def handler(event, context):
               s3 = boto3.client('s3')
@@ -498,27 +517,42 @@ Resources:
                   if event['RequestType'] == 'Delete':
                       rule_prefix = prefix.rstrip('/')
 
+                      new_rules = [ 
+                          {
+                              'ID': f'{bucket}-{rule_prefix}-expire-objects',
+                              'Status': 'Enabled',
+                              'Filter': {'Prefix': prefix},
+                              'Expiration': {'Days': 1},
+                              'NoncurrentVersionExpiration': {'NoncurrentDays': 1},
+                              'AbortIncompleteMultipartUpload': {'DaysAfterInitiation': 1}
+                          },
+                          {
+                              'ID': f'{bucket}-{rule_prefix}-expire-delete-markers',
+                              'Status': 'Enabled',
+                              'Filter': {'Prefix': prefix},
+                              'Expiration': {'ExpiredObjectDeleteMarker': True}
+                          }
+                      ]
+
+                      try:
+                          existing = s3.get_bucket_lifecycle_configuration(Bucket=bucket)
+                          existing_rules = existing.get('Rules', [])
+                      except botocore.exceptions.ClientError as e:
+                          if e.response['Error']['Code'] == 'NoSuchLifecycleConfiguration':
+                              existing_rules = []
+                          else:
+                              raise
+
+                      existing_ids = {r['ID'] for r in existing_rules}
+                      merged_rules = existing_rules + [
+                          r for r in new_rules if r['ID'] not in existing_ids
+                      ]
+
                       s3.put_bucket_lifecycle_configuration(
                           Bucket=bucket,
-                          LifecycleConfiguration={
-                              'Rules': [
-                                  {
-                                      'ID': f'{bucket}-{rule_prefix}-expire-objects',
-                                      'Status': 'Enabled',
-                                      'Filter': {'Prefix': prefix},
-                                      'Expiration': {'Days': 1},
-                                      'NoncurrentVersionExpiration': {'NoncurrentDays': 1},
-                                      'AbortIncompleteMultipartUpload': {'DaysAfterInitiation': 1}
-                                  },
-                                  {
-                                      'ID': f'{bucket}-{rule_prefix}-expire-delete-markers',
-                                      'Status': 'Enabled',
-                                      'Filter': {'Prefix': prefix},
-                                      'Expiration': {'ExpiredObjectDeleteMarker': True}
-                                  }
-                              ]
-                          }
+                          LifecycleConfiguration={'Rules': merged_rules}
                       )
+
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
               except Exception as e:
                   cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
