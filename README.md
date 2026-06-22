@@ -1,7 +1,7 @@
 # WarehousePG on AWS
 
 ## Overview
-This repo contains two different CloudFormation templates: *warehousepg.yaml* and *warehousepg_classic.yaml". The classic template uses EBS storage and database mirroring while the newer template uses S3 and EFS to eliminate the need for mirroring.
+This repo contains three different CloudFormation templates: *warehousepg_s3.yaml*, *warehousepg_classic_local.yaml* and *warehousepg_classic_ebs.yaml". The classic templates rely on database mirroring for HA while the newer template uses S3 and EFS to eliminate the need for mirroring.
 
 ## Optional: Steps to modify and upload deployment scripts
 Note: If you are using `us-east-1` in `EDB-SalesEngineering-SE-EMA`, you should already have access to the bucket `s3://fcto-s3-01` for the Classic template and `s3://fcto-s3-02` for the new template. This is where the scripts have already been copied so you can skip this step.
@@ -26,7 +26,7 @@ Ideally, you also have a public subnet configured. It needs an Internet Gateway 
 
 Note: make sure the subnets are in the VPC you choose as parameters. AWS does not have dependent parameters so it will show you a list of all subnets in your region.
 
-### CloudFormation Stack
+### CloudFormation Stack with S3 Storage
 ![Architecture](images/warehousepg_architecture_detailed.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging local SSD for caching, S3Files for data storage, and EFS for database files other than data.
 
@@ -72,8 +72,47 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 #### Delete Stack
 Deleting a Stack will remove all of the resources provisioned including the data. AWS recommends using Lifecycle rule to remove a large number of files from a bucket so when a Stack is deleted, a Lifecycle rule is created to remove the bucket path used for the Stack after 1 day.
 
-### CloudFormation Classic Stack
-![Architecture](/images/warehousepg_classic_architecture.png)
+### CloudFormation Classic Stack with Local Storage
+![Architecture](/images/warehousepg_classic_local_architecture.png)
+Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging local NVMe storage and databaes mirroring.
+
+#### Overview 
+* Segment mirroring
+* Data stored in local NVMe storage: 1 Availability Zone
+* Can NOT sustain an AZ failure
+* Less expensive than EBS storage
+* Pausing EC2 instances will result in data loss but reboots are fine
+* Fixed storage amount and performance characteristics
+
+#### Create Stack
+1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic.yaml` in this repo.
+![CFT1](/images/cft2.png)
+2. Fill out the parameters
+- `Stack name`: this is mandatory.
+
+**Deployment Scripts**
+- `S3Bucket`: name of the bucket where your deployment scripts are.
+
+**WarehousePG Configuration**
+- `AccessToken`: the EDB access token for downloading EDB software.
+- `DatabaseName`: name of the default database name (PGDATABASE) created
+
+**Compute**
+- `NodeType`: specifies InstanceType in AWS. The instance type uses EBS storage only.
+- `SegmentNodeCount`: 0 to 48 nodes in increments of 2 nodes can be deployed. Setting 0 means it will be a single node and the coordinator and segments will reside there. Setting 2 or larger will enable mirroring and deploy on all nodes.
+- `AMI`: The existing AWS AMI ID that is valid for your region. The default is the AMI for Rocky Linux 9 and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack and ideally, use Rocky Linux 9 as that has been tested. NOTE: Do not pick an AMI with LVM enabled.
+- `KeyPair`: specifies the existing KeyPair for ssh access to the coordinator node.
+- `TimeZone`: sets the TZ on all nodes.
+
+**Network**
+- `InternetAccess`: if true, the coordinator node will have access to the Internet.
+- `SSHCIDER`: make this as restrive as possible. 0.0.0.0/0 will be removed automatically in EDB's accounts. Only used when InternetAccess is true and only applies to the coordinator node.
+- `VPC`: existing VPC to deploy in.
+- `PrivateSubnet`: Private subnet where the compute nodes will be deployed.
+- `PublicSubnet`: Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing Private subnet here if you don't wish to allow Internet access to the coordinator node.
+
+### CloudFormation Classic Stack with EBS Storage
+![Architecture](/images/warehousepg_classic_ebs_architecture.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging EBS storage and databaes mirroring.
 
 #### Overview 
@@ -124,3 +163,5 @@ All of the resources provisioned by the Stack will be deleted including the data
 ## Debugging 
 1. You can specify to preserve resources in the Stack so that if it fails, the nodes will be preserved.
 2. `ssh` to the coordinator node and `sudo bash`. Then `tail -f /var/log/cloud-init-output.log` to watch the progress of the deployment.
+
+
