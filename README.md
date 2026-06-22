@@ -40,7 +40,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * Local NVMe caching so consistent performance even with a busy cluster (no bursting exhaustion)
 
 #### Create Stack
-1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg.yaml` in this repo.
+1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_s3.yaml` in this repo.
 ![CFT1](/images/cft1.png)
 2. Fill out the parameters
 - `Stack name`: this is mandatory.
@@ -85,7 +85,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * Fixed storage amount and performance characteristics
 
 #### Create Stack
-1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic.yaml` in this repo.
+1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic_local.yaml` in this repo.
 ![CFT1](/images/cft2.png)
 2. Fill out the parameters
 - `Stack name`: this is mandatory.
@@ -125,7 +125,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * EBS bursting can be exhausted with busy cluster and performance slows down
 
 #### Create Stack
-1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic.yaml` in this repo.
+1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic_ebs.yaml` in this repo.
 ![CFT1](/images/cft2.png)
 2. Fill out the parameters
 - `Stack name`: this is mandatory.
