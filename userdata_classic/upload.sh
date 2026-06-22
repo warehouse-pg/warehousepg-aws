@@ -2,12 +2,12 @@
 
 set -e
 
-bucket="fcto-s3-01"
-
 #outpost
 #bucket="whpg-deploy"
 
-count=$(aws s3 ls s3://${bucket} 2>/dev/null  | wc -l)
+bucket="warehousepg-userdata-classic"
+
+count=$(aws s3 ls | awk -F ' ' '{print $3}' | grep -w "${bucket}" | wc -l)
 
 if [ "${count}" -eq "0" ]; then
 	echo "aws s3 mb s3://${bucket}"

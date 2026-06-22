@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: WarehousePG Cluster Classic
+Description: WarehousePG Cluster Classic with EBS Storage
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -41,7 +41,7 @@ Parameters:
   S3Bucket:
     Type: String
     Description: This bucket contains the unzipped scripts used for completing the deployment of WarehousePG
-    Default: fcto-s3-01
+    Default: warehousepg-userdata-classic
 
   InternetAccess:
     Type: String
@@ -587,8 +587,7 @@ Resources:
                 echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
-                echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
-                echo 'SEGMENTS_PER_DISK="1"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -596,7 +595,7 @@ Resources:
                 dnf install unzip -y
                 unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
                 /opt/edb/warehousepg/aws/install
-                echo "export PATH=/usr/local/bin:\$PATH" >> ${!HOME}/.bashrc
+                echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
                 aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
@@ -604,7 +603,7 @@ Resources:
                 #temporary password used only to exchange ssh keys
                 AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
-                DataDisks: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
+                SegmentCount: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
 
   CoordinatorNode:
     Type: AWS::EC2::Instance
@@ -675,7 +674,6 @@ Resources:
                 VolumeType: !Ref DiskType
                 Encrypted: !Ref DiskEncrypted
             - !Ref AWS::NoValue
-
           - !If
             - HasDataDisk8
             - DeviceName: /dev/sdh
@@ -732,8 +730,7 @@ Resources:
                 echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
-                echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
-                echo 'SEGMENTS_PER_DISK="1"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -741,7 +738,7 @@ Resources:
                 dnf install unzip -y
                 unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
                 /opt/edb/warehousepg/aws/install
-                echo "export PATH=/usr/local/bin:\$PATH" >> ${!HOME}/.bashrc
+                echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
                 aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
@@ -749,7 +746,7 @@ Resources:
                 #temporary password used only to exchange ssh keys
                 AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
-                DataDisks: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
+                SegmentCount: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
 
   SegmentNodes:
     Type: AWS::EC2::EC2Fleet

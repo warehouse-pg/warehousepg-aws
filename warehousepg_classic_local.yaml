@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: WarehousePG Cluster
+Description: WarehousePG Cluster Classic with Local Storage
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -7,7 +7,7 @@ Metadata:
       - Label:
           default: Deployment Scripts
         Parameters:
-          - DeploymentBucket
+          - S3Bucket
       - Label:
           default: WarehousePG Configuration
         Parameters:
@@ -29,20 +29,12 @@ Metadata:
           - VPC
           - PrivateSubnet
           - PublicSubnet
-      - Label:
-          default: Storage
-        Parameters:
-          - S3StorageBucket
-Parameters:
-  S3StorageBucket:
-    Type: String
-    Description: Existing bucket for WarehousePG data storage.
-    Default: fcto-warehousepg-data
 
-  DeploymentBucket:
+Parameters:
+  S3Bucket:
     Type: String
     Description: This bucket contains the unzipped scripts used for completing the deployment of WarehousePG
-    Default: fcto-s3-02
+    Default: warehousepg-userdata-classic
 
   InternetAccess:
     Type: String
@@ -127,9 +119,7 @@ Parameters:
 
   AMI:
     Type: AWS::EC2::Image::Id
-    Description: >-
-      Search for "Rocky Linux 9 Latest" in Community AMIs that are 64-bit, EBS 
-      root device, ENA enabled. This default was created 2026-05-18 in us-east-1.
+    Description: The ami id. The example on is Rocky Linux 9 for us-east-1.
     Default: ami-0f2425d4cce4e97dd
 
   DatabaseName:
@@ -145,12 +135,12 @@ Parameters:
 
   NodeType:
     Type: String
-    Description: The Node Type used for all nodes in the cluster.
-    Default: r6idn.4xlarge
+    Description: The Node Type.
+    Default: i4i.2xlarge
     AllowedValues:
-      - r6idn.2xlarge
-      - r6idn.4xlarge
-      - r6idn.8xlarge
+      - i4i.2xlarge
+      - i4i.4xlarge
+      - i4i.8xlarge
     ConstraintDescription: Must be a valid EC2 instance type
 
   SegmentNodeCount:
@@ -196,9 +186,9 @@ Parameters:
 
 Mappings:
   SegmentCountMapping:
-    'r6idn.2xlarge': { SegmentCount: '2' }
-    'r6idn.4xlarge': { SegmentCount: '4' }
-    'r6idn.8xlarge': { SegmentCount: '8' }
+    'i4i.2xlarge': { SegmentCount: '2' }
+    'i4i.4xlarge': { SegmentCount: '4' }
+    'i4i.8xlarge': { SegmentCount: '8' }
 
   ClusterCountMapping:
     '0':  { ClusterCount: '1',  Timeout: '1200' }
@@ -246,6 +236,7 @@ Conditions:
   MultiNodes: !Not [!Equals [!Ref SegmentNodeCount, '0']]
 
 Resources:
+
   ClusterCompleteHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
 
@@ -267,7 +258,6 @@ Resources:
             Principal:
               Service:
                 - ec2.amazonaws.com
-                - lambda.amazonaws.com
             Action:
               - sts:AssumeRole
       Path: /
@@ -284,52 +274,16 @@ Resources:
                   - ec2:DescribeInstanceStatus
                   - s3:ListAllMyBuckets
                   - s3:ListBucket
-                  - s3:ListBucketVersions
                   - s3:GetObject
                   - s3:PutObject
-                  - s3:DeleteObject
-                  - s3:DeleteObjectVersion
-                  - s3:GetBucketLocation
-                  - s3:PutBucketVersioning
-                  - s3:PutLifeCycleConfiguration
-                  - s3:GetLifeCycleConfiguration
-                  - s3files:ClientMount
-                  - s3files:ClientWrite
-                  - s3files:ClientRootAccess
-                  - s3files:ListFileSystems
-                  - s3files:GetFileSystem
-                  - s3files:ListMountTargets
-                  - s3files:GetMountTarget
-                  - s3files:DeleteFileSystem
-                  - elasticfilesystem:ClientMount
-                  - elasticfilesystem:ClientWrite
-                  - elasticfilesystem:ClientRootAccess
-                  - elasticfilesystem:DescribeFileSystems
-                  - elasticfilesystem:DescribeMountTargets
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - lambda:InvokeFunction
-                  - events:DeleteRule
-                  - events:DisableRule
-                  - events:EnableRule
-                  - events:PutRule
-                  - events:PutTargets
-                  - events:RemoveTargets
-                  - events:DescribeRule
-                  - events:ListRuleNamesByTarget
-                  - events:ListRules
-                  - events:ListTargetsByRule
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
-    DependsOn: NodeIAMRole
     Properties:
       Path: /
       Roles:
         - !Ref NodeIAMRole
 
-  #**************** Security Groups *******************
   PrivateSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -337,7 +291,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub "${AWS::StackName}-PrivateSecurityGroup"
+          Value: !Join ['-', [!Ref AWS::StackName, PrivateSecurityGroup]]
 
   PrivateSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -354,7 +308,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub "${AWS::StackName}-PublicSecurityGroup"
+          Value: !Join ['-', [!Ref AWS::StackName, PublicSecurityGroup]]
 
   PublicSecurityGroupEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -405,320 +359,6 @@ Resources:
       ToPort: 65535
       SourceSecurityGroupId: !Ref PrivateSecurityGroup
 
-  #**************** S3 Files *******************
-  EnableVersioning:
-    Type: AWS::CloudFormation::CustomResource
-    Properties:
-      ServiceToken: !GetAtt VersioningLambda.Arn
-      BucketName: !Ref S3StorageBucket
-
-  VersioningLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-versioning"
-      RetentionInDays: 30
-
-  VersioningLambda:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-versioning"
-      Runtime: python3.12
-      Handler: index.handler
-      Role: !GetAtt NodeIAMRole.Arn
-      Timeout: 300
-      Code:
-        ZipFile: |
-          import boto3
-          import cfnresponse
-          import botocore.exceptions
-            
-          def handler(event, context):
-              bucket = event['ResourceProperties']['BucketName']
-              s3 = boto3.client('s3')
-              try:
-                  if event['RequestType'] in ('Create', 'Update'):
-                      
-                      s3.put_bucket_versioning(
-                          Bucket=bucket,
-                          VersioningConfiguration={'Status': 'Enabled'}
-                      )
-
-                      new_rules = [ 
-                         
-                          {
-                              'ID': 'expire-noncurrent-versions',
-                              'Status': 'Enabled',
-                              'Filter': {'Prefix': ''},
-                              'NoncurrentVersionExpiration': {'NoncurrentDays': 1},
-                              'AbortIncompleteMultipartUpload': {'DaysAfterInitiation': 1}
-                          }
-                      ]
- 
-                      try:
-                          existing = s3.get_bucket_lifecycle_configuration(Bucket=bucket) 
-                          existing_rules = existing.get('Rules', [])
-                      except botocore.exceptions.ClientError as e:
-                          if e.response['Error']['Code'] == 'NoSuchLifecycleConfiguration':
-                              existing_rules = []
-                          else:
-                              raise
-
-                      existing_ids = {r['ID'] for r in existing_rules}
-                      merged_rules = existing_rules + [
-                          r for r in new_rules if r['ID'] not in existing_ids
-                      ]
-
-
-                      s3.put_bucket_lifecycle_configuration(
-                          Bucket=bucket,
-                          LifecycleConfiguration={'Rules': merged_rules}
-                      )
-
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-              except Exception as e:
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
-
-  # Delete S3 Files sets retention policy to delete the files for the Stack asynchronously
-  DeleteS3Files:
-    Type: AWS::CloudFormation::CustomResource
-    Properties:
-      ServiceToken: !GetAtt DeleteS3FilesLambda.Arn
-      BucketName: !Ref S3StorageBucket
-      Prefix: !Sub
-        - "${AWS::StackName}-${StackUUID}/"
-        - StackUUID: !Select [2, !Split ['/', !Ref 'AWS::StackId' ]]
-
-  DeleteS3FilesLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-delete-s3files"
-      RetentionInDays: 30
-
-  DeleteS3FilesLambda:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-delete-s3files"
-      Runtime: python3.12
-      Handler: index.handler
-      Role: !GetAtt NodeIAMRole.Arn
-      Timeout: 300
-      Code:
-        ZipFile: |
-          import boto3
-          import cfnresponse
-          import botocore.exceptions
-          
-          def handler(event, context):
-              s3 = boto3.client('s3')
-              bucket = event['ResourceProperties']['BucketName']
-              prefix = event['ResourceProperties']['Prefix']
-            
-              try:
-                  if event['RequestType'] == 'Delete':
-                      rule_prefix = prefix.rstrip('/')
-
-                      new_rules = [ 
-                          {
-                              'ID': f'{bucket}-{rule_prefix}-expire-objects',
-                              'Status': 'Enabled',
-                              'Filter': {'Prefix': prefix},
-                              'Expiration': {'Days': 1},
-                              'NoncurrentVersionExpiration': {'NoncurrentDays': 1},
-                              'AbortIncompleteMultipartUpload': {'DaysAfterInitiation': 1}
-                          },
-                          {
-                              'ID': f'{bucket}-{rule_prefix}-expire-delete-markers',
-                              'Status': 'Enabled',
-                              'Filter': {'Prefix': prefix},
-                              'Expiration': {'ExpiredObjectDeleteMarker': True}
-                          }
-                      ]
-
-                      try:
-                          existing = s3.get_bucket_lifecycle_configuration(Bucket=bucket)
-                          existing_rules = existing.get('Rules', [])
-                      except botocore.exceptions.ClientError as e:
-                          if e.response['Error']['Code'] == 'NoSuchLifecycleConfiguration':
-                              existing_rules = []
-                          else:
-                              raise
-
-                      existing_ids = {r['ID'] for r in existing_rules}
-                      merged_rules = existing_rules + [
-                          r for r in new_rules if r['ID'] not in existing_ids
-                      ]
-
-                      s3.put_bucket_lifecycle_configuration(
-                          Bucket=bucket,
-                          LifecycleConfiguration={'Rules': merged_rules}
-                      )
-
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-              except Exception as e:
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
-
-  S3FilesRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - elasticfilesystem.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      Path: /
-      Policies:
-        - PolicyName: S3FilesAccess
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Sid: S3BucketPermissions
-                Effect: Allow
-                Resource: !Sub "arn:aws:s3:::${S3StorageBucket}"
-                Action:
-                  - s3:ListBucket
-                  - s3:ListBucketVersions
-              - Sid: S3ObjectPermissions
-                Effect: Allow
-                Resource: !Sub "arn:aws:s3:::${S3StorageBucket}/*"
-                Action:
-                  - s3:AbortMultipartUpload
-                  - s3:DeleteObject*
-                  - s3:GetObject*
-                  - s3:List*
-                  - s3:PutObject*
-              - Sid: EventBridgeManage
-                Resource: "*"
-                Effect: Allow
-                Action:
-                  - events:DeleteRule
-                  - events:DisableRule
-                  - events:EnableRule
-                  - events:PutRule
-                  - events:PutTargets
-                  - events:RemoveTargets
-              - Sid: EventBridgeRead
-                Resource: "*"
-                Effect: Allow
-                Action:
-                  - events:DescribeRule
-                  - events:ListRuleNamesByTarget
-                  - events:ListRules
-                  - events:ListTargetsByRule
-
-  S3FileSystem:
-    Type: AWS::S3Files::FileSystem
-    DeletionPolicy: Retain # deleted with Lambda to use force delete
-    DependsOn: DeleteS3Files
-    Properties:
-      Bucket: !Sub "arn:aws:s3:::${S3StorageBucket}"
-      RoleArn: !GetAtt S3FilesRole.Arn
-      Prefix: !Sub
-        - "${AWS::StackName}-${StackUUID}/"
-        - StackUUID: !Select [2, !Split ['/', !Ref 'AWS::StackId' ]]
-      Tags:
-        - Key: Name
-          Value: !Sub "${AWS::StackName}-S3FileSystem"
-
-  # Needed for force delete on the filesystem
-  DeleteS3FileSystem:
-    Type: AWS::CloudFormation::CustomResource
-    Properties:     
-      ServiceToken: !GetAtt DeleteS3FileSystemLambda.Arn
-      FileSystemId: !Ref S3FileSystem
-    
-  DeleteS3FileSystemLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-delete-s3filesystem"
-      RetentionInDays: 30
-
-  DeleteS3FileSystemLambda:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub "${AWS::StackName}-delete-s3filesystem"
-      Runtime: python3.12
-      Handler: index.handler
-      Role: !GetAtt NodeIAMRole.Arn
-      Timeout: 300 
-      Code:
-        ZipFile: | 
-          import boto3
-          import cfnresponse
-          import logging 
-
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-    
-          def handler(event, context):
-              logger.info(f"Event: {event}")
-              request_type = event['RequestType']
-              filesystem_id = event.get('ResourceProperties', {}).get('FileSystemId')
-      
-              try: 
-                  if request_type != 'Delete':
-                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-                      return
-      
-                  if not filesystem_id:
-                      logger.warning("No FileSystemId provided, nothing to flush")
-                      cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-                      return
-          
-                  client = boto3.client('s3files')
-          
-                  try:
-                      logger.info(f"Force deleting filesystem {filesystem_id}")
-                      client.delete_file_system(
-                          fileSystemId=filesystem_id,
-                          forceDelete=True
-                      )
-                      logger.info("Force delete successful")
-                  except client.exceptions.ResourceNotFoundException:
-                      logger.info("Filesystem not found, already deleted — skipping")
-  
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-    
-              except Exception as e:
-                  logger.error(f"Unhandled error: {str(e)}", exc_info=True)
-                  cfnresponse.send(event, context, cfnresponse.FAILED, {'Error': str(e)})
-
-  S3MountTarget:
-    Type: AWS::S3Files::MountTarget
-    DependsOn: 
-      - S3FileSystem
-      - DeleteS3FileSystem
-    Properties:
-      FileSystemId: !Ref S3FileSystem
-      SubnetId: !Ref PrivateSubnet
-      SecurityGroups:
-        - !Ref PublicSecurityGroup
-        - !Ref PrivateSecurityGroup
-
-  #**************** EFS *******************
-  EFSFileSystem:
-    Type: AWS::EFS::FileSystem
-    Properties:
-      Encrypted: true
-      ThroughputMode: elastic
-      FileSystemTags:
-        - Key: Name
-          Value: !Sub "${AWS::StackName}-EFSFileSystem"
-
-  EFSMountTarget:
-    Type: AWS::EFS::MountTarget
-    DependsOn: EFSFileSystem
-    Properties:
-      FileSystemId: !Ref EFSFileSystem
-      SubnetId: !Ref PrivateSubnet
-      SecurityGroups:
-        - !Ref PublicSecurityGroup
-        - !Ref PrivateSecurityGroup
-
-  #**************** Coordinator *******************
   CoordinatorNodeLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -767,8 +407,7 @@ Resources:
                 echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
-                echo 'SEGS_PER_NODE="${SegsPerNode}"' >> /opt/edb/warehousepg/config.sh
-                echo 'DATA_BUCKET="arn:aws:s3:::${S3StorageBucket}"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -777,29 +416,26 @@ Resources:
                 unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
                 /opt/edb/warehousepg/aws/install
                 echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
-                aws s3 sync s3://${DeploymentBucket}/warehousepg/aws/ /opt/edb/warehousepg/
+                aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
                 #temporary password used only to exchange ssh keys
                 AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
-                SegsPerNode: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount]
+                SegmentCount: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
+
 
   CoordinatorNode:
     Type: AWS::EC2::Instance
-    DependsOn: 
-      - S3MountTarget
-      - EFSMountTarget
     Properties:
       LaunchTemplate:
         LaunchTemplateId: !Ref CoordinatorNodeLaunchTemplate
         Version: '1'
       Tags:
         - Key: Name
-          Value: !Sub "${AWS::StackName}-cdw"
+          Value: !Join ['-', [!Ref AWS::StackName, cdw]]
 
-  #**************** Segment Nodes *******************
   SegmentNodesLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Condition: MultiNodes
@@ -849,8 +485,7 @@ Resources:
                 echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
-                echo 'SEGS_PER_NODE="${SegsPerNode}"' >> /opt/edb/warehousepg/config.sh
-                echo 'DATA_BUCKET="arn:aws:s3:::${S3StorageBucket}"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -859,21 +494,18 @@ Resources:
                 unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
                 /opt/edb/warehousepg/aws/install
                 echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
-                aws s3 sync s3://${DeploymentBucket}/warehousepg/aws/ /opt/edb/warehousepg/
+                aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
                 #temporary password used only to exchange ssh keys
                 AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
-                SegsPerNode: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount]
+                SegmentCount: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
 
   SegmentNodes:
     Type: AWS::EC2::EC2Fleet
     Condition: MultiNodes
-    DependsOn: 
-      - S3MountTarget
-      - EFSMountTarget
     Properties:
       Type: instant
       TargetCapacitySpecification:
