@@ -80,7 +80,9 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * Segment mirroring
 * Data stored in local NVMe storage: 1 Availability Zone
 * Can NOT sustain an AZ failure
-* Less expensive than EBS storage
+* Least expensive template 
+* Ideal for using with AWS Reserved Instances for deep discounts
+* Compare to Redshift DC2 architecture
 * Pausing EC2 instances will result in data loss but reboots are fine
 * Fixed storage amount and performance characteristics
 
