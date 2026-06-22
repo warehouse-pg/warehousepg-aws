@@ -111,6 +111,12 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `PrivateSubnet`: Private subnet where the compute nodes will be deployed.
 - `PublicSubnet`: Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing Private subnet here if you don't wish to allow Internet access to the coordinator node.
 
+**Storage**
+- Fixed amount per node
+- `i4i.2xlarge` has 1 1.875 TB disk per node
+- `i4i.4xlarge` has 1 3.750 TB disk per node
+- `i4i.8xlarge` has 2 3.750 TB disks per node
+
 ### CloudFormation Classic Stack with EBS Storage
 ![Architecture](/images/warehousepg_classic_ebs_architecture.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging EBS storage and databaes mirroring.
