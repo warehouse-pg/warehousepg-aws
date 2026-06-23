@@ -26,7 +26,7 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 * 16 vCPU per host
 * 128 GB RAM per host
 
-| Deployment | Load | 1 User Queries (minutes) | 5 Users Queries (minutes) | Total Time (hours) | Cost per Month |
+| Deployment | Load (minutes) | 1 User Queries (minutes) | 5 Users Queries (minutes) | Total Time (hours) | Cost per Month |
 | --- | --- | --- | --- | --- | --- |
 | `warehousepg_s3` | 62.50 | 103.09 | 282.46 | 7.47 | $6,114 | 
 | `warehousepg_classic_local` | 40.68 | 97.80 | 274.88 | 6.89 | $4,968 |
