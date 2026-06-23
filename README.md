@@ -3,7 +3,6 @@
 ## Overview
 This repo contains three different CloudFormation templates: *warehousepg_s3.yaml*, *warehousepg_classic_local.yaml* and *warehousepg_classic_ebs.yaml". The classic templates rely on database mirroring for HA while the newer template uses S3 and EFS to eliminate the need for mirroring.
 
-
 | Feature | `warehousepg_s3.yaml` | `warehousepg_classic_local` | `warehousepg_classic_ebs` |
 | --- | --- | --- | --- |
 | **Use Case** | Cloud storage, pause/resume, and POCs. | 24x7 usage, Reserved Instances, and most like an on-prem deployment. | Infrequent to medium busy clusters, pause/resume, and POCs. |
@@ -11,11 +10,13 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 | **Scale Storage** | Scales automatically and pay for storage used, not provisioned. | Must add more nodes to scale storage (like on-prem). | Online resize of EBS volumes fully supported. | 
 | **Performance Characteristics** | Cached frequently accessed data performs very well but cache misses have greater latency. Slower data loading than other templates.  | Consistent performance even with heavy load. | Busy clusters get slower over time. |
 | **Pause/Resume** | Fully supported. | Not supported. Data will be lost if paused. | Fully supported. |
-| **Elastic Resize Up/Down** | Supported by reassigning segments to different nodes. | Not supported. | Not supported. |
+| **Elastic Scale In/Out** | Supported by reassigning segments to different nodes. | Not supported. | Not supported. |
+| **Classic Scale Out** | `gpexpand` fully supported. | `gpexpand` fully supported. | `gpexpand` fully supported. |
 | **Scale Up/Down** | Change instance size. | Not supported. | Change instance size. |
 | **Disaster Recovery AZ failure** | RPO of 0 with data available in other AZs in the Region. | Data loss if VMs aren't backed up to another AZ/Region. | Data loss if VMs aren't backed up to another AZ/Region. |
 | **Disaster Recovery Region failure** | S3 replication to minimize data loss. | Data loss if VMs aren't backed up to another Region. | Data loss if VMs aren't backed up to another Region. |
- 
+| **Cost** | Consumption model for storage (like Snowflake and Databricks). Medium overall cost but flexible with pause/resume support and Reserved Instances. | Least expensive and predictable. Ideal for Reserved Instances. | Most expensive but flexible with pause/resume support and Reserved Instances. |
+
 
 ## Optional: Steps to modify and upload deployment scripts
 Note: If you are using `us-east-1` in `EDB-SalesEngineering-SE-EMA`, you should already have access to the bucket `s3://warehousepg-userdata-classic` for the Classic templates and `s3://warehousepg-userdata-s3` for the new S3 template. This is where the scripts have already been copied so you can skip this step.
