@@ -19,7 +19,7 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 
 
 ## TPC-DS Results
-* 1 TB 
+* 1 TB scale factor
 * 1 and 5 concurrent users
 * 4 segment hosts 
 * 4 segments per host
@@ -27,6 +27,7 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 * 128 GB RAM per host
 
 | Deployment | Load | 1 User Queries | 5 Users Queries | Cost per Month |
+| --- | --- | --- | --- | --- |
 | `warehousepg_s3` | 62.50 minutes | 103.09 minutes | 282.46 minutes | $6,114 | 
 | `warehousepg_classic_local` | 40.68 minutes | 97.80 minutes | 274.88 minutes | $4,968 |
 | `warehousepg_classic_ebs` | 43.74 minutes | 100.65 minutes | 281.21 minutes | $8,806 |
