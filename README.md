@@ -18,6 +18,19 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 | **Cost** | Consumption model for storage (like Snowflake and Databricks). Medium overall cost but flexible with pause/resume support and Reserved Instances. | Least expensive and predictable. Ideal for Reserved Instances. | Most expensive but flexible with pause/resume support and Reserved Instances. |
 
 
+## TPC-DS Results
+* 1 TB 
+* 1 and 5 concurrent users
+* 4 segment hosts 
+* 4 segments per host
+* 16 vCPU per host
+* 128 GB RAM per host
+
+| Deployment | Load | 1 User Queries | 5 Users Queries | Cost per Month |
+| `warehousepg_s3` | 62.50 minutes | 103.09 minutes | 282.46 minutes | $6,114 | 
+| `warehousepg_classic_local` | 40.68 minutes | 97.80 minutes | 274.88 minutes | $4,968 |
+| `warehousepg_classic_ebs` | 43.74 minutes | 100.65 minutes | 281.21 minutes | $8,806 |
+
 ## Optional: Steps to modify and upload deployment scripts
 Note: If you are using `us-east-1` in `EDB-SalesEngineering-SE-EMA`, you should already have access to the bucket `s3://warehousepg-userdata-classic` for the Classic templates and `s3://warehousepg-userdata-s3` for the new S3 template. This is where the scripts have already been copied so you can skip this step.
 
