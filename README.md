@@ -3,7 +3,7 @@
 ## Overview
 This repo contains three different CloudFormation templates: *warehousepg_s3.yaml*, *warehousepg_classic_local.yaml* and *warehousepg_classic_ebs.yaml". The classic templates rely on database mirroring for HA while the newer template uses S3 and EFS to eliminate the need for mirroring.
 
-| Feature | `warehousepg_s3.yaml` | `warehousepg_classic_local.yaml` | `warehousepg_classic_ebs.yaml` |
+| Feature | `warehousepg_s3` | `warehousepg_classic_local` | `warehousepg_classic_ebs` |
 | --- | --- | --- | --- |
 | **Use Case** | Cloud storage, pause/resume, and POCs. | 24x7 usage, Reserved Instances, and most like an on-prem deployment. | Infrequent to medium busy clusters, pause/resume, and POCs. |
 | **Storage** | Storage is separate from compute; 1 copy of the data. | Direct attached storage (like on-prem). | Block storage attached to VMs that can be scaled up. |
