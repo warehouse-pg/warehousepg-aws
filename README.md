@@ -3,8 +3,21 @@
 ## Overview
 This repo contains three different CloudFormation templates: *warehousepg_s3.yaml*, *warehousepg_classic_local.yaml* and *warehousepg_classic_ebs.yaml". The classic templates rely on database mirroring for HA while the newer template uses S3 and EFS to eliminate the need for mirroring.
 
+
+| Feature | `warehousepg_s3.yaml` | `warehousepg_classic_local` | `warehousepg_classic_ebs` |
+| --- | --- | --- | --- |
+| **Storage** | Storage is separate from compute; 1 copy of the data. | Direct attached storage (like on-prem) and fixed size. | Block storage attached to VMs that can be scaled up. |
+| **Performance Characteristics** | Cached frequently accessed data performs very well but cache misses have greater latency.  | Consistent performance. | Busy clusters get slower over time. |
+| **Pause/Resume** | Fully supported. | Not supported. Data will be lost if paused. | Fully supported. |
+| **Elastic Resize Up/Down** | Supported. | Not supported. | Not supported. |
+| **Scale Up/Down** | Change instance size. | Not supported. | Change instance size. |
+| **Disaster Recovery AZ failure** | RPO of 0 with data available in other AZs in the Region. | Data loss if VMs aren't backed up to another AZ/Region. | Data loss if VMs aren't backed up to another AZ/Region. |
+| **Disaster Recovery Region failure** | S3 replication to minimize data loss. | Data loss if VMs aren't backed up to another Region. | Data loss if VMs aren't backed up to another Region. |
+| **Use Case** | Cloud storage, pause/resume, and POCs. | 24x7 usage, Reserved Instances, and most like an on-prem deployment. | Infrequent to medium busy clusters, pause/resume, and POCs. |
+ 
+
 ## Optional: Steps to modify and upload deployment scripts
-Note: If you are using `us-east-1` in `EDB-SalesEngineering-SE-EMA`, you should already have access to the bucket `s3://fcto-s3-01` for the Classic template and `s3://fcto-s3-02` for the new template. This is where the scripts have already been copied so you can skip this step.
+Note: If you are using `us-east-1` in `EDB-SalesEngineering-SE-EMA`, you should already have access to the bucket `s3://warehousepg-userdata-classic` for the Classic templates and `s3://warehousepg-userdata-s3` for the new S3 template. This is where the scripts have already been copied so you can skip this step.
 
 1. Create a bucket in the region you are wishing to deploy.
 2. Log into AWS via Okta and click on Access Keys.
