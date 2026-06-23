@@ -26,11 +26,11 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 * 16 vCPU per host
 * 128 GB RAM per host
 
-| Deployment | Load | 1 User Queries | 5 Users Queries | Cost per Month |
+| Deployment | Load | 1 User Queries (minutes) | 5 Users Queries (minutes) | Total Time (hours) | Cost per Month |
 | --- | --- | --- | --- | --- |
-| `warehousepg_s3` | 62.50 minutes | 103.09 minutes | 282.46 minutes | $6,114 | 
-| `warehousepg_classic_local` | 40.68 minutes | 97.80 minutes | 274.88 minutes | $4,968 |
-| `warehousepg_classic_ebs` | 43.74 minutes | 100.65 minutes | 281.21 minutes | $8,806 |
+| `warehousepg_s3` | 62.50 | 103.09 | 282.46 | 7.47 | $6,114 | 
+| `warehousepg_classic_local` | 40.68 | 97.80 | 274.88 | 6.89 | $4,968 |
+| `warehousepg_classic_ebs` | 43.74 | 100.65 | 281.21 | 7.09 | $8,806 |
 
 ## Optional: Steps to modify and upload deployment scripts
 Note: If you are using `us-east-1` in `EDB-SalesEngineering-SE-EMA`, you should already have access to the bucket `s3://warehousepg-userdata-classic` for the Classic templates and `s3://warehousepg-userdata-s3` for the new S3 template. This is where the scripts have already been copied so you can skip this step.
