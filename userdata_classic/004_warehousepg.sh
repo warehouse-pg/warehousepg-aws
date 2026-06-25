@@ -6,10 +6,10 @@ INSTALL_DIR="/opt/edb/warehousepg"
 CONFIG_FILE="config.sh"
 source ${INSTALL_DIR}/${CONFIG_FILE}
 
-DATA_DISK=$(cat ${INSTALL_DIR}/data_disks.txt | wc -l)
-SEGMENTS_PER_DISK=$((SEGMENT_COUNT/DATA_DISK))
+DATA_DISKS=$(cat ${INSTALL_DIR}/data_disks.txt | wc -l)
+SEGMENTS_PER_DISK=$((SEGMENT_COUNT/DATA_DISKS))
 
-echo "DATA_DISK: ${DATA_DISK}"
+echo "DATA_DISKS: ${DATA_DISKS}"
 echo "SEGMENTS_PER_DISK: ${SEGMENTS_PER_DISK}"
 
 set_env()
