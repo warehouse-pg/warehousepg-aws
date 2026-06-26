@@ -85,7 +85,7 @@ create()
 		directory="/data${counter}"
 		uuid=$(blkid $i | awk -F '"' '{print $2}')
 		mount -t xfs -o rw,noatime,nodev -U ${uuid} ${directory} || true
-		echo "UUID=${uuid} ${directory} xfs rw,noatime,nodev 0 2" >> /etc/fstab
+		echo "UUID=${uuid} ${directory} xfs rw,noatime,nodev,nofail,x-systemd.device-timeout=30 0 0" >> /etc/fstab
 		chown ${ADMIN}:${ADMIN} ${directory}
 	done
 
