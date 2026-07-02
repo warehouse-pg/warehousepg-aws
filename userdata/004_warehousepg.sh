@@ -186,6 +186,12 @@ install_pxf()
 		su -l ${ADMIN} -c "psql -c \"ALTER EXTENSION pxf UPDATE\""
 	fi
 }
+install_pgaa()
+{
+	su -l ${ADMIN} -c "gpconfig -c shared_preload_libraries -v 'pgaa,pgfs'"
+	su -l ${ADMIN} -c "gpstop -ra"
+	su -l ${ADMIN} -c "psql -c \"create extension pgaa cascade;\""
+}
 setup_s3()
 {
 	pxf_profile="/usr/local/edb-whpg7-pxf/servers/default/s3-site.xml"
@@ -223,6 +229,7 @@ if [ "${NODE_INDEX}" -eq "0" ]; then
 	move_base_dir
 	set_temp_tablespace
 	install_pxf
+	install_pgaa
 	setup_s3
 	disable_password_auth
 fi
