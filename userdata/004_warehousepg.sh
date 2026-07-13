@@ -26,20 +26,8 @@ set_env()
 
 	echo "source \${GPHOME}/greenplum_path.sh" >> /home/$ADMIN/.bashrc
 }
-exchange_keys()
+cache_keys()
 {
-	rm -f /home/${ADMIN}/.ssh/id_rsa
-	rm -f /home/${ADMIN}/.ssh/id_rsa.pub
-	su -l ${ADMIN} -c "ssh-keygen -t rsa -N '' -f /home/${ADMIN}/.ssh/id_rsa"
-	cat /home/${ADMIN}/.ssh/id_rsa.pub >> /home/${ADMIN}/.ssh/authorized_keys
-
-	chown -R ${ADMIN}:${ADMIN} /home/$ADMIN/.ssh
-	chmod 600 /home/${ADMIN}/.ssh/authorized_keys
-
-	for node in $(cat ${INSTALL_DIR}/all_nodes.txt); do
-		sshpass -p "${ADMIN_PASS}" scp -o StrictHostKeyChecking=no /home/${ADMIN}/.ssh/authorized_keys /home/${ADMIN}/.ssh/id_rsa.pub /home/${ADMIN}/.ssh/id_rsa ${ADMIN}@${node}:/home/${ADMIN}/.ssh/
-	done
-
 	#test and cache keys between coordinator and segment nodes
 	for node in $(cat ${INSTALL_DIR}/all_nodes.txt); do
 		su -l ${ADMIN} -c "ssh -o StrictHostKeyChecking=no ${node} 'uptime > /dev/null'"
@@ -154,13 +142,6 @@ set_temp_tablespace()
 	echo "${temp_dir}" > ${s3_data_dir}/temp_dir.txt
 	chown ${ADMIN}:${ADMIN} ${s3_data_dir}/temp_dir.txt
 }
-disable_password_auth()
-{
-	#disable password authentication
-	for node in $(cat ${INSTALL_DIR}/all_nodes.txt); do
-		su -l ${ADMIN} -c "ssh ${node} 'sudo rm -f /etc/ssh/sshd_config.d/40-password-auth.conf > /dev/null'"
-	done
-}
 install_pxf()
 {
 	su -l ${ADMIN} -c "pxf cluster stop" || true
@@ -222,7 +203,7 @@ signal_complete()
 set_env
 
 if [ "${NODE_INDEX}" -eq "0" ]; then
-	exchange_keys
+	cache_keys
 	create_directories
 	create_initsystem_file
 	init_system
@@ -231,7 +212,6 @@ if [ "${NODE_INDEX}" -eq "0" ]; then
 	install_pxf
 	install_pgaa
 	setup_s3
-	disable_password_auth
 fi
 
 #all nodes need to send a signal that it is complete.

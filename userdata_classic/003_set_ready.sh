@@ -30,13 +30,14 @@ check_ready()
 	while [ "${INSTANCE_COUNT}" -ne "${counter}" ]; do
 		counter="0"
 		for i in $(cat ${INSTALL_DIR}/all_nodes.txt); do
-			ssh_check=$(sshpass -p "${ADMIN_PASS}" ssh -o StrictHostKeyChecking=no ${ADMIN}@${i} "ls ${ready_logfile}" 2> /dev/null | wc -l)
+			ssh_check=$(su -l ${ADMIN} -c "ssh -o StrictHostKeyChecking=no ${i} \"ls ${ready_logfile}\" 2> /dev/null" | wc -l)
 			counter=$((counter + ssh_check))
 		done
 		sleep 5
 		echo -ne "."
 	done
-	echo "Done.  All nodes ready for database initialization."
+	echo "."
+	echo "Done. All nodes ready for database initialization."
 }
 
 set_ready

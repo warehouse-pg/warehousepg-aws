@@ -90,7 +90,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 
 **Network**
 - `InternetAccess`: if true, the coordinator node will have access to the Internet.
-- `SSHCIDER`: make this as restrive as possible. 0.0.0.0/0 will be removed automatically in EDB's accounts. Only used when InternetAccess is true and only applies to the coordinator node.
+- `SSHCIDER`: make this as restrive as possible. Only used when InternetAccess is true and only applies to the coordinator node.
 - `VPC`: existing VPC to deploy in.
 - `PrivateSubnet`: Private subnet where the compute nodes will be deployed.
 - `PublicSubnet`: Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing Private subnet here if you don't wish to allow Internet access to the coordinator node.
@@ -137,7 +137,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 
 **Network**
 - `InternetAccess`: if true, the coordinator node will have access to the Internet.
-- `SSHCIDER`: make this as restrive as possible. 0.0.0.0/0 will be removed automatically in EDB's accounts. Only used when InternetAccess is true and only applies to the coordinator node.
+- `SSHCIDER`: make this as restrive as possible. Only used when InternetAccess is true and only applies to the coordinator node.
 - `VPC`: existing VPC to deploy in.
 - `PrivateSubnet`: Private subnet where the compute nodes will be deployed.
 - `PublicSubnet`: Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing Private subnet here if you don't wish to allow Internet access to the coordinator node.
@@ -183,13 +183,12 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 
 **Network**
 - `InternetAccess`: if true, the coordinator node will have access to the Internet.
-- `SSHCIDER`: make this as restrive as possible. 0.0.0.0/0 will be removed automatically in EDB's accounts. Only used when InternetAccess is true and only applies to the coordinator node.
+- `SSHCIDER`: make this as restrive as possible. Only used when InternetAccess is true and only applies to the coordinator node.
 - `VPC`: existing VPC to deploy in.
 - `PrivateSubnet`: Private subnet where the compute nodes will be deployed.
 - `PublicSubnet`: Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing Private subnet here if you don't wish to allow Internet access to the coordinator node.
 
 **Storage**
-- `DiskEncrypted`: specifies to use AWS encryption on the data volumes.
 - `DiskType`: specifies the disk type. SC1 is ideal for testing and ST1 for production. For extremely busy workloads, GP3 can be used but it costs the most.
 - `CoordinatorDiskSize`: the data volume on the coordinator. 
 - `SegmentDiskSize`: specifies the data volume size on each segment node. Remember you can also specify the number of data volumes per node.

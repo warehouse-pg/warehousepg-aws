@@ -55,7 +55,6 @@ Parameters:
       or a more restrictive range. This is only used if you enable
       InternetAccess and it is only applied to the SecurityGroup created for
       the PublicSubnet specified.
-    Default: 0.0.0.0/0
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
     ConstraintDescription: Must be a valid CIDR range.
 
@@ -228,14 +227,18 @@ Mappings:
   ReleaseMapping:
     UserInfo:
       Admin: gpadmin
-      #temporary password used only to exchange ssh keys
-      AdminPass: ***REMOVED***
 
 Conditions:
   PublicIP: !Equals [!Ref InternetAccess, 'True']
   MultiNodes: !Not [!Equals [!Ref SegmentNodeCount, '0']]
 
 Resources:
+
+  AdminKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Join ['-', [!Ref AWS::StackName, KeyPair]]
+      KeyType: rsa
 
   ClusterCompleteHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
@@ -276,12 +279,7 @@ Resources:
                   - s3:ListBucket
                   - s3:GetObject
                   - s3:PutObject
-                  - s3tables:GetTableBucket
-                  - s3tables:ListNamespaces
-                  - s3tables:GetNamespace
-                  - s3tables:GetTable
-                  - s3tables:GetTableMetadataLocation
-                  - s3tables:GetTableData
+                  - ssm:GetParameter
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -410,10 +408,10 @@ Resources:
                 echo 'EDB_SUBSCRIPTION_TOKEN="${AccessToken}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATABASE_NAME="${DatabaseName}"' >> /opt/edb/warehousepg/config.sh
                 echo 'ADMIN="${Admin}"' >> /opt/edb/warehousepg/config.sh
-                echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
+                echo 'ADMIN_KEYPAIR_ID="${AdminKeyPairId}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -426,11 +424,9 @@ Resources:
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
-                #temporary password used only to exchange ssh keys
-                AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
                 SegmentCount: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
-
+                AdminKeyPairId: !GetAtt AdminKeyPair.KeyPairId 
 
   CoordinatorNode:
     Type: AWS::EC2::Instance
@@ -488,10 +484,10 @@ Resources:
                 echo 'EDB_SUBSCRIPTION_TOKEN="${AccessToken}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATABASE_NAME="${DatabaseName}"' >> /opt/edb/warehousepg/config.sh
                 echo 'ADMIN="${Admin}"' >> /opt/edb/warehousepg/config.sh
-                echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
+                echo 'ADMIN_KEYPAIR_ID="${AdminKeyPairId}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -504,10 +500,9 @@ Resources:
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
-                #temporary password used only to exchange ssh keys
-                AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
                 SegmentCount: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
+                AdminKeyPairId: !GetAtt AdminKeyPair.KeyPairId 
 
   SegmentNodes:
     Type: AWS::EC2::EC2Fleet

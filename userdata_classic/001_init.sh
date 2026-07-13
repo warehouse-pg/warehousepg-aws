@@ -5,24 +5,72 @@ INSTALL_DIR="/opt/edb/warehousepg"
 CONFIG_FILE="config.sh"
 source ${INSTALL_DIR}/${CONFIG_FILE}
 
-set_os_params()
+setup_admin()
 {
-	#these yum statements take a while so comment out for now
-	#yum check-update || true
-	#yum update -y
-	dnf install libevent sshpass gcc kernel-devel m4 flex wget zip bzip2 krb5-devel xfsdump expect cloud-init tk bc psmisc cloud-init epel-release -y
-	dnf install python3-pip -y
-	pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
 	count=$(cat /etc/passwd | grep ${ADMIN} | wc -l)
+	#get the public key created by the template for this Stack
 	if [ "${count}" -eq "0" ]; then
 		echo "add ${ADMIN} user"
 		useradd -r -m ${ADMIN}
 		echo "${ADMIN} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/91-warehousepg
 		chmod 0400 /etc/sudoers.d/91-warehousepg
 	fi
-	echo "${ADMIN}:${ADMIN_PASS}" | chpasswd
-	mkdir -p ~gpadmin/.ssh
-	chown -R gpadmin:gpadmin ~gpadmin/.ssh
+
+	#.ssh directory
+	echo "mkdir -p /home/${ADMIN}/.ssh"
+	mkdir -p /home/${ADMIN}/.ssh
+	echo "chmod 700 /home/${ADMIN}/.ssh"
+	chmod 700 /home/${ADMIN}/.ssh
+
+	#private key
+	aws ssm get-parameter --name "/ec2/keypair/${ADMIN_KEYPAIR_ID}" --with-decryption --query Parameter.Value --output text > /home/${ADMIN}/.ssh/id_rsa
+	chmod 600 /home/${ADMIN}/.ssh/id_rsa
+
+	#public key
+	ssh-keygen -y -f /home/${ADMIN}/.ssh/id_rsa > /home/${ADMIN}/.ssh/id_rsa.pub
+	chmod 644 /home/${ADMIN}/.ssh/id_rsa.pub 
+	chown ${ADMIN}:${ADMIN} /home/${ADMIN}/.ssh/id_rsa.pub 
+
+	#authorized keys
+	cp /home/${ADMIN}/.ssh/id_rsa.pub /home/${ADMIN}/.ssh/authorized_keys
+	echo "chmod 600 /home/${ADMIN}/.ssh/authorized_keys"
+	chmod 600 /home/${ADMIN}/.ssh/authorized_keys
+
+	#change ownership
+	echo "chown -R ${ADMIN}:${ADMIN} /home/${ADMIN}/.ssh"
+	chown -R ${ADMIN}:${ADMIN} /home/${ADMIN}/.ssh
+}
+get_aws_metadata()
+{
+	TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
+	#remove previous variables if any are found
+	sed -i "/REGION/ d" ${INSTALL_DIR}/${CONFIG_FILE}
+	sed -i "/INSTANCE_ID/ d" ${INSTALL_DIR}/${CONFIG_FILE}
+	sed -i "/KEY_PAIR/ d" ${INSTALL_DIR}/${CONFIG_FILE}
+
+	REGION=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+	echo "REGION=\"${REGION}\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
+
+	INSTANCE_ID=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+	echo "INSTANCE_ID=\"${INSTANCE_ID}\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
+
+	KEY_PAIR=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-keys/ | awk -F '=' '{print $2}')
+	echo "KEY_PAIR=\"${KEY_PAIR}\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
+
+	if [ "${COORDINATOR_HOST_IND}" -eq "1" ]; then
+		sed -i "/NODE_INDEX/ d" ${INSTALL_DIR}/${CONFIG_FILE}
+		echo "NODE_INDEX=\"0\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
+	fi
+}
+set_os_params()
+{
+	#these yum statements take a while so comment out for now
+	#yum check-update || true
+	#yum update -y
+	dnf install libevent gcc kernel-devel m4 flex wget zip bzip2 krb5-devel xfsdump expect cloud-init tk bc psmisc cloud-init epel-release -y
+	dnf install python3-pip -y
+	pip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
 	sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
 	sed -i 's/SELINUX=permissive/SELINUX=disabled/g' /etc/selinux/config
 	setenforce 0
@@ -34,8 +82,6 @@ set_os_params()
 	echo "MaxStartups 10000" >> /etc/ssh/sshd_config
 	sed -i '/MaxSessions/d' /etc/ssh/sshd_config
 	echo "MaxSessions 10000" >> /etc/ssh/sshd_config
-	#override the default of not allowing password authentication
-	echo "PasswordAuthentication yes" > /etc/ssh/sshd_config.d/40-password-auth.conf
 	service sshd restart
 	sleep 5
 
@@ -86,29 +132,6 @@ set_os_params()
 	#timezone
 	timedatectl set-timezone ${TIMEZONE}
 }
-get_aws_metadata()
-{
-	TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-
-	#remove previous variables if any are found
-	sed -i "/REGION/ d" ${INSTALL_DIR}/${CONFIG_FILE}
-	sed -i "/INSTANCE_ID/ d" ${INSTALL_DIR}/${CONFIG_FILE}
-	sed -i "/KEY_PAIR/ d" ${INSTALL_DIR}/${CONFIG_FILE}
-
-	REGION=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
-	echo "REGION=\"${REGION}\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
-
-	INSTANCE_ID=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
-	echo "INSTANCE_ID=\"$INSTANCE_ID\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
-
-	KEY_PAIR=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-keys/ | awk -F '=' '{print $2}')
-	echo "KEY_PAIR=\"${KEY_PAIR}\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
-
-	if [ "${COORDINATOR_HOST_IND}" -eq "1" ]; then
-		sed -i "/NODE_INDEX/ d" ${INSTALL_DIR}/${CONFIG_FILE}
-		echo "NODE_INDEX=\"0\"" >> ${INSTALL_DIR}/${CONFIG_FILE}
-	fi
-}
 get_ready_count()
 {
 	ready_count="0"
@@ -151,7 +174,7 @@ assign_nodes()
 		for i in $(cat ${INSTALL_DIR}/segment_ips.txt); do
 			echo -ne "Checking for ${ADMIN} user on Segment Nodes."
 			while [ "${counter}" -lt "${INSTANCE_COUNT}" ]; do
-				count=$(sshpass -p ${ADMIN_PASS} ssh -o StrictHostKeyChecking=no ${ADMIN}@${i} "whoami" 2>&1 | grep -i "${ADMIN}" | wc -l)
+				count=$(su -l ${ADMIN} -c "ssh -o StrictHostKeyChecking=no ${i} 'whoami'" 2>&1 | grep -i "${ADMIN}" | wc -l)
 				counter=$((counter+count))
 				if [ "${counter}" -lt "${INSTANCE_COUNT}" ]; then
 					sleep 5
@@ -165,10 +188,10 @@ assign_nodes()
 		for i in $(cat ${INSTALL_DIR}/segment_ips.txt); do
 			index=$((index+1))
 			echo -ne "."
-			sshpass -p ${ADMIN_PASS} ssh -o StrictHostKeyChecking=no ${ADMIN}@${i} "sudo chown -R ${ADMIN}:${ADMIN} ${INSTALL_DIR}"
-			sshpass -p ${ADMIN_PASS} ssh -o StrictHostKeyChecking=no ${ADMIN}@${i} "sed -i '/NODE_INDEX/ d' ${INSTALL_DIR}/${CONFIG_FILE}"
-			sshpass -p ${ADMIN_PASS} ssh -o StrictHostKeyChecking=no ${ADMIN}@${i} "echo 'NODE_INDEX=\"${index}\"' >> ${INSTALL_DIR}/${CONFIG_FILE}"
-		done
+			su -l ${ADMIN} -c "ssh -o StrictHostKeyChecking=no ${i} \"sudo chown -R ${ADMIN}:${ADMIN} ${INSTALL_DIR}\""
+			su -l ${ADMIN} -c "ssh -o StrictHostKeyChecking=no ${i} \"sed -i '/NODE_INDEX/ d' ${INSTALL_DIR}/${CONFIG_FILE}\""
+			su -l ${ADMIN} -c "ssh -o StrictHostKeyChecking=no ${i} \"echo 'NODE_INDEX=\\\"${index}\\\"' >> ${INSTALL_DIR}/${CONFIG_FILE}\""
+			done
 		echo "."
 	fi
 }
@@ -228,8 +251,8 @@ create_hosts_file()
  	if [ -f ${INSTALL_DIR}/segment_ips.txt ]; then
 		echo -ne "Copy new hosts file to segment nodes."
 		for ip in $(cat ${INSTALL_DIR}/segment_ips.txt); do
-			sshpass -p ${ADMIN_PASS} scp -o StrictHostKeyChecking=no ${INSTALL_DIR}/hosts ${ADMIN}@${ip}:${INSTALL_DIR}
-			sshpass -p ${ADMIN_PASS} ssh -o StrictHostKeyChecking=no ${ADMIN}@${ip} "sudo cp -f ${INSTALL_DIR}/hosts /etc/; sudo chown root:root /etc/hosts"
+			su -l ${ADMIN} -c "scp -o StrictHostKeyChecking=no ${INSTALL_DIR}/hosts ${ip}:${INSTALL_DIR}"
+			su -l ${ADMIN} -c "ssh -o StrictHostKeyChecking=no ${ip} \"sudo cp -f ${INSTALL_DIR}/hosts /etc/; sudo chown root:root /etc/hosts\""
 			echo -ne "."
 		done
 		echo "."
@@ -255,14 +278,15 @@ create_nodes_files()
 }
 get_edb_binaries()
 {
-
 	curl -1sSLf "https://downloads.enterprisedb.com/${EDB_SUBSCRIPTION_TOKEN}/gpsupp/setup.rpm.sh" | sudo -E bash
 	dnf install -y warehouse-pg-7 warehouse-pg-clients whpg-backup edb-whpg7-pxf edb-whpg7-pgaa java
 	chown ${ADMIN}:${ADMIN} -R /usr/edb/whpg7
 	chown ${ADMIN}:${ADMIN} -R /usr/local/edb-whpg7-pxf
 }
-set_os_params
+
+setup_admin
 get_aws_metadata
+set_os_params
 get_edb_binaries
 
 if [ "${COORDINATOR_HOST_IND}" -eq "1" ]; then
