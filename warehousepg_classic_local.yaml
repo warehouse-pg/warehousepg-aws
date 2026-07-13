@@ -276,6 +276,12 @@ Resources:
                   - s3:ListBucket
                   - s3:GetObject
                   - s3:PutObject
+                  - s3tables:GetTableBucket
+                  - s3tables:ListNamespaces
+                  - s3tables:GetNamespace
+                  - s3tables:GetTable
+                  - s3tables:GetTableMetadataLocation
+                  - s3tables:GetTableData
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile

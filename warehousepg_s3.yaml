@@ -320,6 +320,12 @@ Resources:
                   - events:ListRuleNamesByTarget
                   - events:ListRules
                   - events:ListTargetsByRule
+                  - s3tables:GetTableBucket
+                  - s3tables:ListNamespaces
+                  - s3tables:GetNamespace
+                  - s3tables:GetTable
+                  - s3tables:GetTableMetadataLocation
+                  - s3tables:GetTableData
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
