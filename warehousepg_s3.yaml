@@ -237,8 +237,6 @@ Mappings:
   ReleaseMapping:
     UserInfo:
       Admin: gpadmin
-      #temporary password used only to exchange ssh keys
-      AdminPass: ***REMOVED***
 
 Conditions:
   PublicIP: !Equals [!Ref InternetAccess, 'True']
