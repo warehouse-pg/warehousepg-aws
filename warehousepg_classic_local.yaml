@@ -115,6 +115,7 @@ Parameters:
     MaxLength: '32'
     AllowedPattern: '^[a-zA-Z0-9]+$'
     ConstraintDescription: The access token is 32 characters long.
+    NoEcho: true 
 
   AMI:
     Type: AWS::EC2::Image::Id
