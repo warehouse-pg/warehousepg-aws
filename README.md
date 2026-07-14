@@ -17,44 +17,6 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 | **Disaster Recovery Region failure** | S3 replication to minimize data loss. | Data loss if VMs aren't backed up to another Region. | Data loss if VMs aren't backed up to another Region. |
 | **Cost** | Consumption model for storage (like Snowflake and Databricks). Medium overall cost but flexible with pause/resume support and Reserved Instances. | Least expensive and predictable. Ideal for Reserved Instances. | Most expensive but flexible with pause/resume support and Reserved Instances. |
 
-
-## TPC-DS Results
-* 1 TB scale factor
-* 1 and 5 concurrent users
-* 4 segment hosts 
-* 4 segments per host
-* 16 vCPU per host
-* 128 GB RAM per host
-
-| Deployment | Load (minutes) | 1 User Queries (minutes) | 5 Users Queries (minutes) | Total Time (hours) | Cost per Month |
-| --- | --- | --- | --- | --- | --- |
-| `warehousepg_s3` | 62.50 | 103.09 | 282.46 | 7.47 | $6,114 | 
-| `warehousepg_classic_local` | 40.68 | 97.80 | 274.88 | 6.89 | $4,968 |
-| `warehousepg_classic_ebs` | 43.74 | 100.65 | 281.21 | 7.09 | $8,806 |
-
-## Optional: Steps to modify and upload deployment scripts
-Note: If you are using `us-east-1` in `EDB-SalesEngineering-SE-EMA`, you should already have access to the bucket `s3://warehousepg-userdata-classic` for the Classic templates and `s3://warehousepg-userdata-s3` for the new S3 template. This is where the scripts have already been copied so you can skip this step.
-
-1. Create a bucket in the region you are wishing to deploy.
-2. Log into AWS via Okta and click on Access Keys.
-![Access Keys](/images/access_keys.png)
-3. Open a terminal and run `aws configure`.
-4. On the Access Keys page, copy and paste the access key id, secret access key, and the session token in the terminal window. These are temporary credentials so these will expire after a few hours. Specify the region and you can use any format you want for the output.
-![Credentials](/images/credentials.png)
-![AWS Configure](/images/aws_configure.png)
-5. Change to the UserData directory, change the bucket location to your new bucket, run `./upload.sh`.
-
-## VPC
-If you are using `us-east-1` in `EDB-SalesEngineering-SE-EMA`, you can use the VPC `fcto-vpc` else, you need to create or use an existing VPC in your account and region.
-
-![Private](/images/private.png)
-You need at a minimum a private subnet configured with a NAT Gateway so that commands like `dnf` and `yum` work. If you only use a private network, you need to specify `FALSE` when setting `InternetAccess`.
-
-![Public](/images/public.png)
-Ideally, you also have a public subnet configured. It needs an Internet Gateway so that you can access the coordinator node. Only port 22 will be open to the CIDR range specified with `SSHCIDR`. 
-
-Note: make sure the subnets are in the VPC you choose as parameters. AWS does not have dependent parameters so it will show you a list of all subnets in your region.
-
 ### CloudFormation Stack with S3 Storage
 ![Architecture](images/warehousepg_architecture_detailed.png)
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation leveraging local SSD for caching, S3Files for data storage, and EFS for database files other than data.
@@ -75,7 +37,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `Stack name`: this is mandatory.
 
 **Deployment Scripts**
-- `DeploymentBucket`: name of the bucket where your deployment scripts are.
+- `DeploymentBucket`: name of the bucket where your deployment scripts are. Upload files in this repo in `userdata/` to this location. Use the `upload.sh` script to place the files in your bucket.
 
 **WarehousePG Configuration**
 - `AccessToken`: the EDB access token for downloading EDB software.
@@ -122,7 +84,8 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `Stack name`: this is mandatory.
 
 **Deployment Scripts**
-- `S3Bucket`: name of the bucket where your deployment scripts are.
+- `S3Bucket`: name of the bucket where your deployment scripts are. Upload files in this repo in `userdata_classic/` to this location. Use the `upload.sh` script to place t
+he files in your bucket.
 
 **WarehousePG Configuration**
 - `AccessToken`: the EDB access token for downloading EDB software.
@@ -168,7 +131,8 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 - `Stack name`: this is mandatory.
 
 **Deployment Scripts**
-- `S3Bucket`: name of the bucket where your deployment scripts are.
+- `S3Bucket`: name of the bucket where your deployment scripts are. Upload files in this repo in `userdata_classic/` to this location. Use the `upload.sh` script to place t
+he files in your bucket.
 
 **WarehousePG Configuration**
 - `AccessToken`: the EDB access token for downloading EDB software.
