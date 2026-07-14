@@ -32,7 +32,6 @@ Metadata:
       - Label:
           default: Storage
         Parameters:
-          - DiskEncrypted
           - DiskType
           - CoordinatorDiskSize
           - SegmentDiskSize
@@ -62,7 +61,6 @@ Parameters:
       or a more restrictive range. This is only used if you enable
       InternetAccess and it is only applied to the SecurityGroup created for
       the PublicSubnet specified.
-    Default: 0.0.0.0/0
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
     ConstraintDescription: Must be a valid CIDR range.
 
@@ -93,14 +91,6 @@ Parameters:
       Select an existing Amazon EC2 Key Pair. A Key Pair refers to the public
       and private keys used to access your nodes instead of a password.
     MinLength: '1'
-
-  DiskEncrypted:
-    Type: String
-    Description: Encrypt the Cluster Data Disks.
-    Default: 'True'
-    AllowedValues:
-      - 'True'
-      - 'False'
 
   DiskType:
     Type: String
@@ -311,8 +301,6 @@ Mappings:
   ReleaseMapping:
     UserInfo:
       Admin: gpadmin
-      #temporary password used only to exchange ssh keys
-      AdminPass: ***REMOVED***
 
 Conditions:
   PublicIP: !Equals [!Ref InternetAccess, 'True']
@@ -323,6 +311,12 @@ Conditions:
   HasDataDisk8: !Equals [!FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ] , '8']
 
 Resources:
+
+  AdminKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Join ['-', [!Ref AWS::StackName, KeyPair]]
+      KeyType: rsa
 
   ClusterCompleteHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
@@ -363,6 +357,7 @@ Resources:
                   - s3:ListBucket
                   - s3:GetObject
                   - s3:PutObject
+                  - ssm:GetParameter
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -464,7 +459,7 @@ Resources:
               VolumeSize: !Ref CoordinatorDiskSize
               DeleteOnTermination: true
               VolumeType: !Ref DiskType
-              Encrypted: !Ref DiskEncrypted
+              Encrypted: true
           - !If
             - MultiNodes
             - DeviceName: /dev/sdc
@@ -474,7 +469,7 @@ Resources:
                 VolumeSize: !Ref CoordinatorDiskSize
                 DeleteOnTermination: true
                 VolumeType: !Ref DiskType
-                Encrypted: !Ref DiskEncrypted
+                Encrypted: true
           - !Ref AWS::NoValue
           - !If
             - HasDataDisk4
@@ -487,7 +482,7 @@ Resources:
                   VolumeSize: !Ref CoordinatorDiskSize
                   DeleteOnTermination: true
                   VolumeType: !Ref DiskType
-                  Encrypted: !Ref DiskEncrypted
+                  Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk4
@@ -500,7 +495,7 @@ Resources:
                   VolumeSize: !Ref CoordinatorDiskSize
                   DeleteOnTermination: true
                   VolumeType: !Ref DiskType
-                  Encrypted: !Ref DiskEncrypted
+                  Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk8
@@ -513,7 +508,7 @@ Resources:
                   VolumeSize: !Ref CoordinatorDiskSize
                   DeleteOnTermination: true
                   VolumeType: !Ref DiskType
-                  Encrypted: !Ref DiskEncrypted
+                  Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk8
@@ -526,7 +521,7 @@ Resources:
                   VolumeSize: !Ref CoordinatorDiskSize
                   DeleteOnTermination: true
                   VolumeType: !Ref DiskType
-                  Encrypted: !Ref DiskEncrypted
+                  Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk8
@@ -539,7 +534,7 @@ Resources:
                   VolumeSize: !Ref CoordinatorDiskSize
                   DeleteOnTermination: true
                   VolumeType: !Ref DiskType
-                  Encrypted: !Ref DiskEncrypted
+                  Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk8
@@ -552,14 +547,14 @@ Resources:
                   VolumeSize: !Ref CoordinatorDiskSize
                   DeleteOnTermination: true
                   VolumeType: !Ref DiskType
-                  Encrypted: !Ref DiskEncrypted
+                  Encrypted: true
             - !Ref AWS::NoValue
           - DeviceName: /dev/sdz
             Ebs:
               VolumeSize: 32
               DeleteOnTermination: true
               VolumeType: gp2
-              Encrypted: !Ref DiskEncrypted
+              Encrypted: true
         EbsOptimized: true
         IamInstanceProfile:
           Arn: !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/${InstanceProfile}'
@@ -589,11 +584,10 @@ Resources:
                 echo 'EDB_SUBSCRIPTION_TOKEN="${AccessToken}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATABASE_NAME="${DatabaseName}"' >> /opt/edb/warehousepg/config.sh
                 echo 'ADMIN="${Admin}"' >> /opt/edb/warehousepg/config.sh
-                echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
-                echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
-                echo 'SEGMENTS_PER_DISK="1"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
+                echo 'ADMIN_KEYPAIR_ID="${AdminKeyPairId}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -601,15 +595,14 @@ Resources:
                 dnf install unzip -y
                 unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
                 /opt/edb/warehousepg/aws/install
-                echo "export PATH=/usr/local/bin:\$PATH" >> ${!HOME}/.bashrc
+                echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
                 aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
-                #temporary password used only to exchange ssh keys
-                AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
-                DataDisks: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
+                SegmentCount: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
+                AdminKeyPairId: !GetAtt AdminKeyPair.KeyPairId
 
   CoordinatorNode:
     Type: AWS::EC2::Instance
@@ -640,13 +633,13 @@ Resources:
               VolumeSize: !Ref SegmentDiskSize
               DeleteOnTermination: true
               VolumeType: !Ref DiskType
-              Encrypted: !Ref DiskEncrypted
+              Encrypted: true
           - DeviceName: /dev/sdc
             Ebs:
               VolumeSize: !Ref SegmentDiskSize
               DeleteOnTermination: true
               VolumeType: !Ref DiskType
-              Encrypted: !Ref DiskEncrypted
+              Encrypted: true
           - !If
             - HasDataDisk4
             - DeviceName: /dev/sdd
@@ -654,7 +647,7 @@ Resources:
                 VolumeSize: !Ref SegmentDiskSize
                 DeleteOnTermination: true
                 VolumeType: !Ref DiskType
-                Encrypted: !Ref DiskEncrypted
+                Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk4
@@ -663,7 +656,7 @@ Resources:
                 VolumeSize: !Ref SegmentDiskSize
                 DeleteOnTermination: true
                 VolumeType: !Ref DiskType
-                Encrypted: !Ref DiskEncrypted
+                Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk8
@@ -672,7 +665,7 @@ Resources:
                 VolumeSize: !Ref SegmentDiskSize
                 DeleteOnTermination: true
                 VolumeType: !Ref DiskType
-                Encrypted: !Ref DiskEncrypted
+                Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk8
@@ -681,9 +674,8 @@ Resources:
                 VolumeSize: !Ref SegmentDiskSize
                 DeleteOnTermination: true
                 VolumeType: !Ref DiskType
-                Encrypted: !Ref DiskEncrypted
+                Encrypted: true
             - !Ref AWS::NoValue
-
           - !If
             - HasDataDisk8
             - DeviceName: /dev/sdh
@@ -691,7 +683,7 @@ Resources:
                 VolumeSize: !Ref SegmentDiskSize
                 DeleteOnTermination: true
                 VolumeType: !Ref DiskType
-                Encrypted: !Ref DiskEncrypted
+                Encrypted: true
             - !Ref AWS::NoValue
           - !If
             - HasDataDisk8
@@ -700,14 +692,14 @@ Resources:
                 VolumeSize: !Ref SegmentDiskSize
                 DeleteOnTermination: true
                 VolumeType: !Ref DiskType
-                Encrypted: !Ref DiskEncrypted
+                Encrypted: true
             - !Ref AWS::NoValue
           - DeviceName: /dev/sdz
             Ebs:
               VolumeSize: 32
               DeleteOnTermination: true
               VolumeType: gp2
-              Encrypted: !Ref DiskEncrypted
+              Encrypted: true
         EbsOptimized: true
         IamInstanceProfile:
           Arn: !Sub 'arn:aws:iam::${AWS::AccountId}:instance-profile/${InstanceProfile}'
@@ -737,11 +729,10 @@ Resources:
                 echo 'EDB_SUBSCRIPTION_TOKEN="${AccessToken}"' >> /opt/edb/warehousepg/config.sh
                 echo 'DATABASE_NAME="${DatabaseName}"' >> /opt/edb/warehousepg/config.sh
                 echo 'ADMIN="${Admin}"' >> /opt/edb/warehousepg/config.sh
-                echo 'ADMIN_PASS="${AdminPass}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SIGNAL_COMPLETE_URL="${ClusterCompleteHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
-                echo 'DATA_DISKS="${DataDisks}"' >> /opt/edb/warehousepg/config.sh
-                echo 'SEGMENTS_PER_DISK="1"' >> /opt/edb/warehousepg/config.sh
+                echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
+                echo 'ADMIN_KEYPAIR_ID="${AdminKeyPairId}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -749,15 +740,14 @@ Resources:
                 dnf install unzip -y
                 unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
                 /opt/edb/warehousepg/aws/install
-                echo "export PATH=/usr/local/bin:\$PATH" >> ${!HOME}/.bashrc
+                echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
                 aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
-                #temporary password used only to exchange ssh keys
-                AdminPass: !FindInMap [ReleaseMapping, UserInfo, AdminPass]
                 InstanceCount: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
-                DataDisks: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
+                SegmentCount: !FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ]
+                AdminKeyPairId: !GetAtt AdminKeyPair.KeyPairId
 
   SegmentNodes:
     Type: AWS::EC2::EC2Fleet
