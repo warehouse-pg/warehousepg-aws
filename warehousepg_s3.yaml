@@ -271,22 +271,38 @@ Resources:
             Principal:
               Service:
                 - ec2.amazonaws.com
-                - lambda.amazonaws.com
             Action:
               - sts:AssumeRole
       Path: /
       Policies:
         - PolicyName: DescribeAccessEC2andCFN
           PolicyDocument:
+            Version: '2012-10-17'
             Statement:
-              - Effect: Allow
+              - Sid: EC2TagInstances
+                Effect: Allow
+                Resource: !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+                Action:
+                  - ec2:CreateTags
+              - Sid: EC2ClusterDiscovery
+                Effect: Allow
                 Resource: '*'
                 Action:
-                  - iam:PassRole
-                  - ec2:CreateTags
                   - ec2:DescribeInstances
                   - ec2:DescribeInstanceStatus
+              - Sid: S3AccountLevel
+                Effect: Allow
+                Resource: '*'
+                Action:
                   - s3:ListAllMyBuckets
+              - Sid: S3DeploymentAndDataBucketAccess
+                Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:s3:::${DeploymentBucket}"
+                  - !Sub "arn:aws:s3:::${DeploymentBucket}/*"
+                  - !Sub "arn:aws:s3:::${S3StorageBucket}"
+                  - !Sub "arn:aws:s3:::${S3StorageBucket}/*"
+                Action:
                   - s3:ListBucket
                   - s3:ListBucketVersions
                   - s3:GetObject
@@ -294,9 +310,21 @@ Resources:
                   - s3:DeleteObject
                   - s3:DeleteObjectVersion
                   - s3:GetBucketLocation
-                  - s3:PutBucketVersioning
-                  - s3:PutLifeCycleConfiguration
-                  - s3:GetLifeCycleConfiguration
+              - Sid: PXFExternalTableS3Access
+                Effect: Allow
+                Resource:
+                  - "arn:aws:s3:::*"
+                  - "arn:aws:s3:::*/*"
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:AbortMultipartUpload
+              - Sid: S3FilesAndEFSMount
+                Effect: Allow
+                Resource: '*'
+                Action:
                   - s3files:ClientMount
                   - s3files:ClientWrite
                   - s3files:ClientRootAccess
@@ -304,26 +332,15 @@ Resources:
                   - s3files:GetFileSystem
                   - s3files:ListMountTargets
                   - s3files:GetMountTarget
-                  - s3files:DeleteFileSystem
                   - elasticfilesystem:ClientMount
                   - elasticfilesystem:ClientWrite
                   - elasticfilesystem:ClientRootAccess
                   - elasticfilesystem:DescribeFileSystems
                   - elasticfilesystem:DescribeMountTargets
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - lambda:InvokeFunction
-                  - events:DeleteRule
-                  - events:DisableRule
-                  - events:EnableRule
-                  - events:PutRule
-                  - events:PutTargets
-                  - events:RemoveTargets
-                  - events:DescribeRule
-                  - events:ListRuleNamesByTarget
-                  - events:ListRules
-                  - events:ListTargetsByRule
+              - Sid: SSMParameterAccess
+                Effect: Allow
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ec2/keypair/${AdminKeyPair.KeyPairId}"
+                Action:
                   - ssm:GetParameter
 
   InstanceProfile:
@@ -423,13 +440,53 @@ Resources:
       LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-versioning"
       RetentionInDays: 30
 
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: Logging
+                Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-versioning:*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-delete-s3files:*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-delete-s3filesystem:*"
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+              - Sid: BucketVersioningAndLifecycle
+                Effect: Allow
+                Resource: !Sub "arn:aws:s3:::${S3StorageBucket}"
+                Action:
+                  - s3:PutBucketVersioning
+                  - s3:GetLifeCycleConfiguration
+                  - s3:PutLifeCycleConfiguration
+              - Sid: DeleteFileSystem
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - s3files:DeleteFileSystem
+
   VersioningLambda:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: !Sub "${AWS::StackName}-versioning"
       Runtime: python3.12
       Handler: index.handler
-      Role: !GetAtt NodeIAMRole.Arn
+      Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 300
       Code:
         ZipFile: |
@@ -505,7 +562,7 @@ Resources:
       FunctionName: !Sub "${AWS::StackName}-delete-s3files"
       Runtime: python3.12
       Handler: index.handler
-      Role: !GetAtt NodeIAMRole.Arn
+      Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 300
       Code:
         ZipFile: |
@@ -647,7 +704,7 @@ Resources:
       FunctionName: !Sub "${AWS::StackName}-delete-s3filesystem"
       Runtime: python3.12
       Handler: index.handler
-      Role: !GetAtt NodeIAMRole.Arn
+      Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 300 
       Code:
         ZipFile: | 
@@ -891,3 +948,4 @@ Resources:
           Tags:
             - Key: Name
               Value: !Ref AWS::StackName
+

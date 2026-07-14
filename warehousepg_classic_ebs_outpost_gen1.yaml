@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: WarehousePG Cluster Classic with EBS Storage on Outpost
+Description: WarehousePG Cluster Classic with EBS Storage
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -40,7 +40,7 @@ Parameters:
   S3Bucket:
     Type: String
     Description: This bucket contains the unzipped scripts used for completing the deployment of WarehousePG
-    Default: whpg-deploy
+    Default: warehousepg-userdata-classic
 
   InternetAccess:
     Type: String
@@ -139,7 +139,7 @@ Parameters:
   AMI:
     Type: AWS::EC2::Image::Id
     Description: The ami id. The example on is Rocky Linux 9 for us-east-1.
-    Default: ami-0adebe3adcec1fa34
+    Default: ami-0f2425d4cce4e97dd
 
   DatabaseName:
     Type: String
@@ -155,12 +155,11 @@ Parameters:
   NodeType:
     Type: String
     Description: The Node Type.
-    Default: r5.4xlarge
+    Default: r6in.2xlarge
     AllowedValues:
-      - r5.xlarge
-      - r5.2xlarge
-      - r5.4xlarge
-      - r5.8xlarge
+      - r6in.2xlarge
+      - r6in.4xlarge
+      - r6in.8xlarge
     ConstraintDescription: Must be a valid EC2 instance type
 
   CoordinatorDiskSize:
@@ -258,10 +257,9 @@ Parameters:
 
 Mappings:
   SegmentCountMapping:
-    'r5.xlarge': { SegmentCount: '1' }
-    'r5.2xlarge': { SegmentCount: '2' }
-    'r5.4xlarge': { SegmentCount: '4' }
-    'r5.8xlarge': { SegmentCount: '8' }
+    'r6in.2xlarge': { SegmentCount: '2' }
+    'r6in.4xlarge': { SegmentCount: '4' }
+    'r6in.8xlarge': { SegmentCount: '8' }
 
   ClusterCountMapping:
     '0':  { ClusterCount: '1',  Timeout: '1200' }
@@ -345,22 +343,47 @@ Resources:
       Policies:
         - PolicyName: DescribeAccessEC2andCFN
           PolicyDocument:
+            Version: '2012-10-17'
             Statement:
-              - Effect: Allow
+              - Sid: EC2TagInstances
+                Effect: Allow
+                Resource: !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+                Action:
+                  - ec2:CreateTags
+              - Sid: EC2ClusterDiscovery
+                Effect: Allow
                 Resource: '*'
                 Action:
-                  - iam:PassRole
-                  - ec2:CreateTags
                   - ec2:DescribeInstances
                   - ec2:DescribeInstanceStatus
-                  - s3:ListAllMyBuckets
+              - Sid: S3DeploymentBucketReadOnly
+                Effect: Allow
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3Bucket}"
+                  - !Sub "arn:aws:s3:::${S3Bucket}/*"
+                Action:
                   - s3:ListBucket
                   - s3:GetObject
+              - Sid: PXFExternalTableS3Access
+                Effect: Allow
+                Resource:
+                  - "arn:aws:s3:::*"
+                  - "arn:aws:s3:::*/*"
+                Action:
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                  - s3:GetObject
                   - s3:PutObject
+                  - s3:AbortMultipartUpload
+              - Sid: SSMParameterAccess
+                Effect: Allow
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ec2/keypair/${AdminKeyPair.KeyPairId}"
+                Action:
                   - ssm:GetParameter
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
+    DependsOn: NodeIAMRole
     Properties:
       Path: /
       Roles:
@@ -445,9 +468,6 @@ Resources:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateData:
-        MetadataOptions:
-          HttpTokens: required
-          HttpEndpoint: enabled
         BlockDeviceMappings:
           - DeviceName: /dev/sda1
             Ebs:
@@ -619,9 +639,6 @@ Resources:
     Condition: MultiNodes
     Properties:
       LaunchTemplateData:
-        MetadataOptions:
-          HttpTokens: required
-          HttpEndpoint: enabled
         BlockDeviceMappings:
           - DeviceName: /dev/sda1
             Ebs:
