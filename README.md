@@ -6,7 +6,6 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 
 | Feature | `warehousepg_s3` | `warehousepg_classic_local` | `warehousepg_classic_ebs` |
 | --- | --- | --- | --- |
-| **Blog reference** | Option 1 | Option 2 | Option 3 |
 | **Use case** | Cloud storage, pause/resume, and POCs | 24x7 usage, RIs, and most like on-premises | Infrequent to medium busy, pause/resume, and POCs |
 | **Cost driver** | Storage scales independently of compute | Fixed to node count — cheapest when storage need ≈ compute need | Pay for provisioned capacity, not consumed |
 | **Storage** | S3 + local NVMe cache | Local NVMe | EBS (ST1 or SC1) |
