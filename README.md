@@ -13,7 +13,7 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 | **Elastic Scale In/Out** | Supported by reassigning segments to different nodes. | Not supported. | Not supported. |
 | **Classic Scale Out** | `gpexpand` fully supported. | `gpexpand` fully supported. | `gpexpand` fully supported. |
 | **Scale Up/Down** | Change instance size. | Not supported. | Change instance size. |
-| **Disaster Recovery AZ failure** | RPO of 0 with data available in other AZs in the Region. | Data loss if VMs aren't backed up to another AZ/Region. | Data loss if VMs aren't backed up to another AZ/Region. |
+| **Disaster Recovery AZ failure** | RPO of near 0 with data available in other AZs in the Region. | Data loss if VMs aren't backed up to another AZ/Region. | Data loss if VMs aren't backed up to another AZ/Region. |
 | **Disaster Recovery Region failure** | S3 replication to minimize data loss. | Data loss if VMs aren't backed up to another Region. | Data loss if VMs aren't backed up to another Region. |
 | **Cost** | Consumption model for storage (like Snowflake and Databricks). Medium overall cost but flexible with pause/resume support and Reserved Instances. | Least expensive and predictable. Ideal for Reserved Instances. | Most expensive but flexible with pause/resume support and Reserved Instances. |
 
