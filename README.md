@@ -3,19 +3,18 @@
 ## Overview
 This repo contains three different CloudFormation templates: *warehousepg_s3.yaml*, *warehousepg_classic_local.yaml* and *warehousepg_classic_ebs.yaml". The classic templates rely on database mirroring for HA while the newer template uses S3 and EFS to eliminate the need for mirroring.
 
+
 | Feature | `warehousepg_s3` | `warehousepg_classic_local` | `warehousepg_classic_ebs` |
 | --- | --- | --- | --- |
-| **Use Case** | Cloud storage, pause/resume, and POCs. | 24x7 usage, Reserved Instances, and most like an on-prem deployment. | Infrequent to medium busy clusters, pause/resume, and POCs. |
-| **Storage** | Storage is separate from compute; 1 copy of the data. | Direct attached storage (like on-prem). | Block storage attached to VMs that can be scaled up. |
-| **Scale Storage** | Scales automatically and pay for storage used, not provisioned. | Must add more nodes to scale storage (like on-prem). | Online resize of EBS volumes fully supported. | 
-| **Performance Characteristics** | Cached frequently accessed data performs very well but cache misses have greater latency. Slower data loading than other templates.  | Consistent performance even with heavy load. | Busy clusters get slower over time. |
-| **Pause/Resume** | Fully supported. | Not supported. Data will be lost if paused. | Fully supported. |
-| **Elastic Scale In/Out** | Supported by reassigning segments to different nodes. | Not supported. | Not supported. |
-| **Classic Scale Out** | `gpexpand` fully supported. | `gpexpand` fully supported. | `gpexpand` fully supported. |
-| **Scale Up/Down** | Change instance size. | Not supported. | Change instance size. |
-| **Disaster Recovery AZ failure** | RPO of near 0 with data available in other AZs in the Region. | Data loss if VMs aren't backed up to another AZ/Region. | Data loss if VMs aren't backed up to another AZ/Region. |
-| **Disaster Recovery Region failure** | S3 replication to minimize data loss. | Data loss if VMs aren't backed up to another Region. | Data loss if VMs aren't backed up to another Region. |
-| **Cost** | Consumption model for storage (like Snowflake and Databricks). Medium overall cost but flexible with pause/resume support and Reserved Instances. | Least expensive and predictable. Ideal for Reserved Instances. | Most expensive but flexible with pause/resume support and Reserved Instances. |
+| **Blog reference** | Option 1 | Option 2 | Option 3 |
+| **Use case** | Cloud storage, pause/resume, and POCs | 24x7 usage, RIs, and most like on-premises | Infrequent to medium busy, pause/resume, and POCs |
+| **Cost driver** | Storage scales independently of compute | Fixed to node count — cheapest when storage need ≈ compute need | Pay for provisioned capacity, not consumed |
+| **Storage** | S3 + local NVMe cache | Local NVMe | EBS (ST1 or SC1) |
+| **Scale storage** | Independently | Add more nodes | Expand EBS volumes |
+| **Scale compute** | Elastic or classic resize | Classic (`gpexpand`) | Classic (`gpexpand`) |
+| **Pause and resume** | Fully supported | Not supported | Fully supported |
+| **HA** | Relies on S3 durability (no segment mirroring) | Segment mirroring | Segment mirroring |
+| **AZ failure** | Near 0 RPO | Data loss since last backup | Data loss since last backup |
 
 ### CloudFormation Stack with S3 Storage
 ![Architecture](images/warehousepg_architecture_detailed.png)
