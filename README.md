@@ -13,7 +13,8 @@ This repo contains three different CloudFormation templates: *warehousepg_s3.yam
 | **Scale compute** | Elastic or classic resize | Classic (`gpexpand`) | Classic (`gpexpand`) |
 | **Pause and resume** | Fully supported | Not supported | Fully supported |
 | **HA** | Relies on S3 durability (no segment mirroring) | Segment mirroring | Segment mirroring |
-| **AZ failure** | Near 0 RPO | Data loss since last backup | Data loss since last backup |
+| **AZ failure** | Near 0 RPO | Data loss since last backup copied out of AZ | Data loss since last backup or last EBS snapshot |
+| **Region failure** | < 1 hr RPO with S3 replication | Data loss since last backup copied out of Region | Data loss since last backup or last EBS snapshot cross-region copy |
 
 ### CloudFormation Stack with S3 Storage
 ![Architecture](images/warehousepg_architecture_detailed.png)
