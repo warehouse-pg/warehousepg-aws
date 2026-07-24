@@ -169,6 +169,11 @@ setup_s3()
 	su -l ${ADMIN} -c "pxf cluster sync"
 	su -l ${ADMIN} -c "pxf cluster start"
 }
+install_madlib()
+{
+	echo "/usr/local/madlib/bin/madpack -s madlib -p greenplum -c ${ADMIN}@cdw:5432/${DATABASE_NAME} install"
+	su -l ${ADMIN} -c "/usr/local/madlib/bin/madpack -s madlib -p greenplum -c ${ADMIN}@cdw:5432/${DATABASE_NAME} install"
+}
 signal_complete()
 {
 	/usr/local/bin/cfn-signal --region ${REGION} --stack ${STACK} "${SIGNAL_COMPLETE_URL}"
@@ -184,6 +189,7 @@ if [ "${NODE_INDEX}" -eq "0" ]; then
 	install_pxf
 	install_pgaa
 	setup_s3
+	install_madlib
 fi
 
 #all nodes need to send a signal that it is complete.
