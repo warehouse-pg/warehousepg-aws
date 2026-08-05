@@ -146,6 +146,42 @@ set_temp_tablespace()
 	echo "${temp_dir}" > ${s3_data_dir}/temp_dir.txt
 	chown ${ADMIN}:${ADMIN} ${s3_data_dir}/temp_dir.txt
 }
+configure_memory()
+{
+	#assumes all nodes in the cluster are the same size
+
+	#defaulting to 10
+	max_concurrency="10"
+
+	swap_size_bytes=$(free -t | grep Swap | awk -F ' ' '{print $2}')
+	swap_size_mb=$((swap_size_bytes/1024))
+
+	mem_size_bytes=$(free -t | grep Mem | awk -F ' ' '{print $2}')
+	mem_size_mb=$((mem_size_bytes/1024))
+
+	gp_vmem_mb=$(( (( (swap_size_mb + mem_size_mb) - (7500 + (mem_size_mb/20)) )*7)/10 ))
+	gp_vmem_protect_limit_mb=$((gp_vmem_mb/SEGS_PER_NODE))
+
+	max_statement_mem_mb=$(( (gp_vmem_protect_limit_mb *9)/10 ))
+	statement_mem_mb=$(( max_statement_mem_mb/max_concurrency ))
+
+	echo "gpconfig -c max_statement_mem -v \"${max_statement_mem_mb}MB\""
+	su -l ${ADMIN} -c "gpconfig -c max_statement_mem -v \"${max_statement_mem_mb}MB\""
+
+	echo "gpconfig -c statement_mem -v \"${statement_mem_mb}MB\""
+	su -l ${ADMIN} -c "gpconfig -c statement_mem -v \"${statement_mem_mb}MB\""
+	
+	echo "gpconfig -c gp_vmem_protect_limit -v \"${gp_vmem_protect_limit_mb}\""
+	su -l ${ADMIN} -c "gpconfig -c gp_vmem_protect_limit -v \"${gp_vmem_protect_limit_mb}\""
+
+	echo "gpconfig -c gp_resource_manager -v queue"
+	su -l ${ADMIN} -c "gpconfig -c gp_resource_manager -v queue"
+
+	echo "gpstop -ra"
+	su -l ${ADMIN} -c "gpstop -ra"
+	echo "psql -c \"ALTER RESOURCE QUEUE pg_default WITH (ACTIVE_STATEMENTS=${max_concurrency});\""
+	su -l ${ADMIN} -c "psql -c \"ALTER RESOURCE QUEUE pg_default WITH (ACTIVE_STATEMENTS=${max_concurrency});\""
+}
 install_pxf()
 {
 	su -l ${ADMIN} -c "pxf cluster stop" || true
@@ -218,6 +254,7 @@ if [ "${NODE_INDEX}" -eq "0" ]; then
 	init_system
 	move_base_dir
 	set_temp_tablespace
+	configure_memory
 	install_pxf
 	install_pgaa
 	setup_s3

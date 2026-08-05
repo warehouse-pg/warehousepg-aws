@@ -20,3 +20,8 @@ for i in $(ls 0*.sh | grep -v upload.sh); do
 	echo "aws s3 cp ${i} s3://${bucket}/warehousepg/aws/"
 	aws s3 cp $i s3://${bucket}/warehousepg/aws/
 done
+
+for i in $(ls *.rpm); do
+	echo "aws s3 cp ${i} s3://${bucket}/warehousepg/aws/"
+	aws s3 cp $i s3://${bucket}/warehousepg/aws/
+done
