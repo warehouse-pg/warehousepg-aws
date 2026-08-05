@@ -103,25 +103,28 @@ move_base_dir()
 
 	#move coordinator base directory
 	echo "mv ${data_dir}/coordinator/gpseg-1/base ${s3_data_dir}/coordinator/gpseg-1/"
-	mv ${data_dir}/coordinator/gpseg-1/base ${s3_data_dir}/coordinator/gpseg-1/
-	echo "ln -s ${s3_data_dir}/coordinator/gpseg-1/base ${data_dir}/coordinator/gpseg-1/base"
-	ln -s ${s3_data_dir}/coordinator/gpseg-1/base ${data_dir}/coordinator/gpseg-1/base
+	mv ${data_dir}/coordinator/gpseg-1/base ${s3_data_dir}/coordinator/gpseg-1/ > ${INSTALL_DIR}/mv_base_coordinator.log 2>&1 &
 
 	#move segments base directories
-	echo "Make base directories"
-	for i in $(ls ${data_dir}/primary/); do 
+ 	for i in $(ls ${data_dir}/primary/); do 
 		echo "mkdir ${s3_data_dir}/primary/${i}"
 		mkdir ${s3_data_dir}/primary/${i}
 		echo "chown ${ADMIN}:${ADMIN} ${s3_data_dir}/primary/${i}"
 		chown ${ADMIN}:${ADMIN} ${s3_data_dir}/primary/${i}
-	done
-	echo "Move base directories"
- 	for i in $(ls ${data_dir}/primary/); do 
 		echo "mv ${data_dir}/primary/${i}/base ${s3_data_dir}/primary/${i}"
-		mv ${data_dir}/primary/${i}/base ${s3_data_dir}/primary/${i}
-	 done
+		mv ${data_dir}/primary/${i}/base ${s3_data_dir}/primary/${i} > ${INSTALL_DIR}/mv_base_${i}.log 2>&1 &
+	done
+	count=$(ps -ef | grep mv | grep base | grep -v grep | wc -l)
+	while [ "${count}" -gt "0" ]; do
+		echo -ne "."
+		sleep 5
+		count=$(ps -ef | grep mv | grep base | grep -v grep | wc -l)
+	done
+	echo "."
 
 	echo "Add symbolic links"
+	echo "ln -s ${s3_data_dir}/coordinator/gpseg-1/base ${data_dir}/coordinator/gpseg-1/base"
+	ln -s ${s3_data_dir}/coordinator/gpseg-1/base ${data_dir}/coordinator/gpseg-1/base
 	for i in $(ls ${data_dir}/primary/); do 
 		echo "ln -s ${s3_data_dir}/primary/${i}/base ${data_dir}/primary/${i}/base"
 		ln -s ${s3_data_dir}/primary/${i}/base ${data_dir}/primary/${i}/base
@@ -133,9 +136,10 @@ move_base_dir()
 }
 set_temp_tablespace()
 {
-	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; psql -c \"drop tablespace if exists gptemp;\""
-	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; psql -c \"create tablespace gptemp location '/cache1/gptemp';\""
-	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; gpconfig -c temp_tablespaces -v \"gptemp\"; gpstop -u"
+	su -l ${ADMIN} -c "gpssh -f ${INSTALL_DIR}/all_nodes.txt \"rm -rf /cache1/gptemp/*\""
+	su -l ${ADMIN} -c "psql -c \"drop tablespace if exists gptemp;\""
+	su -l ${ADMIN} -c "psql -c \"create tablespace gptemp location '/cache1/gptemp';\""
+	su -l ${ADMIN} -c "gpconfig -c temp_tablespaces -v \"gptemp\"; gpstop -u"
 
 	catalog_version=$(su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; pg_controldata \${COORDINATOR_DATA_DIRECTORY} | grep \"Catalog version number\"" | awk -F ':' '{print $2}' | xargs)
 	temp_dir="GPDB_7_${catalog_version}"
