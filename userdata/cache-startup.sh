@@ -106,6 +106,16 @@ restore_gptemp()
 	mkdir -p /cache1/gptemp
 
 	dir=$(cat /s3data/temp_dir.txt)
+
+	echo -ne "checking EFS mounted filesystem is ready."
+	count=$(mount | grep -w "/data" | wc -l)
+	while [ "${count}" -eq "0" ]; do
+		sleep 5
+		echo -ne "."
+		count=$(mount | grep -w "/data" | wc -l)
+	done
+	echo "."
+
 	segment_count=$(ls /data/primary/ | wc -l)
 	#add 1 for the coordinator
 	total_count=$((1+segment_count))
