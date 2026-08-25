@@ -156,11 +156,12 @@ Parameters:
   NodeType:
     Type: String
     Description: The Node Type.
-    Default: r6in.2xlarge
+    Default: r5.4xlarge
     AllowedValues:
-      - r6in.2xlarge
-      - r6in.4xlarge
-      - r6in.8xlarge
+      - r5.xlarge
+      - r5.2xlarge
+      - r5.4xlarge
+      - r5.8xlarge
     ConstraintDescription: Must be a valid EC2 instance type
 
   CoordinatorDiskSize:
@@ -258,9 +259,10 @@ Parameters:
 
 Mappings:
   SegmentCountMapping:
-    'r6in.2xlarge': { SegmentCount: '2' }
-    'r6in.4xlarge': { SegmentCount: '4' }
-    'r6in.8xlarge': { SegmentCount: '8' }
+    'r5.xlarge': { SegmentCount: '1' }
+    'r5.2xlarge': { SegmentCount: '2' }
+    'r5.4xlarge': { SegmentCount: '4' }
+    'r5.8xlarge': { SegmentCount: '8' }
 
   ClusterCountMapping:
     '0':  { ClusterCount: '1',  Timeout: '1200' }
@@ -469,6 +471,9 @@ Resources:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateData:
+        MetadataOptions:
+          HttpTokens: required
+          HttpEndpoint: enabled
         BlockDeviceMappings:
           - DeviceName: /dev/sda1
             Ebs:
@@ -640,6 +645,9 @@ Resources:
     Condition: MultiNodes
     Properties:
       LaunchTemplateData:
+        MetadataOptions:
+          HttpTokens: required
+          HttpEndpoint: enabled
         BlockDeviceMappings:
           - DeviceName: /dev/sda1
             Ebs:
