@@ -1,5 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: WarehousePG Cluster Classic with EBS Storage
+Outputs:
+  WarehousePGUser:
+    Value: gpadmin
+    Description: Database administrator user name for WarehousePG database connections
+  WEMURL:
+    Value: !Select [3, !Split ['"', !GetAtt WEMURLOutput.Data]]
+    Description: WarehousePG Enterprise Manager URL
+  WEMUser:
+    Value: admin
+    Description: WarehousePG Enteprise Manager user name
+  WEMPassword:
+    Value: !Select [3, !Split ['"', !GetAtt WEMPasswordOutput.Data]]
+    Description: WarehousePG Enterprise Manager temporary password
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -310,7 +323,6 @@ Conditions:
   HasDataDisk8: !Equals [!FindInMap [SegmentCountMapping, !Ref NodeType, SegmentCount ] , '8']
 
 Resources:
-
   AdminKeyPair:
     Type: AWS::EC2::KeyPair
     Properties:
@@ -320,6 +332,12 @@ Resources:
   ClusterCompleteHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
 
+  WEMURLHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
+  WEMPasswordHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+
   ClusterCompleteCondition:
     Type: AWS::CloudFormation::WaitCondition
     DependsOn: CoordinatorNode
@@ -327,6 +345,22 @@ Resources:
       Handle: !Ref ClusterCompleteHandle
       Timeout: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, Timeout]
       Count: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, ClusterCount]
+
+  WEMURLOutput:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: CoordinatorNode
+    Properties:
+      Handle: !Ref WEMURLHandle
+      Timeout: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, Timeout]
+      Count: 1
+
+  WEMPasswordOutput:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: CoordinatorNode
+    Properties:
+      Handle: !Ref WEMPasswordHandle
+      Timeout: !FindInMap [ClusterCountMapping, !Ref SegmentNodeCount, Timeout]
+      Count: 1
 
   NodeIAMRole:
     Type: AWS::IAM::Role
@@ -433,6 +467,17 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
+      CidrIp: !Ref SSHCIDR
+
+  PublicSecurityGroupWEM:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: PublicIP
+    Properties:
+      Description: SSH access
+      GroupId: !Ref PublicSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8080
+      ToPort: 8080
       CidrIp: !Ref SSHCIDR
 
   PrivateSecurityGroupPing:
@@ -609,6 +654,8 @@ Resources:
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'ADMIN_KEYPAIR_ID="${AdminKeyPairId}"' >> /opt/edb/warehousepg/config.sh
+                echo 'WEM_URL_SIGNAL="${WEMURLHandle}"' >> /opt/edb/warehousepg/config.sh
+                echo 'WEM_PASSWORD_SIGNAL="${WEMPasswordHandle}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -751,6 +798,8 @@ Resources:
                 echo 'INSTANCE_COUNT="${InstanceCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'SEGMENT_COUNT="${SegmentCount}"' >> /opt/edb/warehousepg/config.sh
                 echo 'ADMIN_KEYPAIR_ID="${AdminKeyPairId}"' >> /opt/edb/warehousepg/config.sh
+                echo 'WEM_URL_SIGNAL="${WEMURLHandle}"' >> /opt/edb/warehousepg/config.sh
+                echo 'WEM_PASSWORD_SIGNAL="${WEMPasswordHandle}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
