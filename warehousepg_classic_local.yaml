@@ -299,6 +299,8 @@ Resources:
             Action:
               - sts:AssumeRole
       Path: /
+
+
       Policies:
         - PolicyName: DescribeAccessEC2andCFN
           PolicyDocument:
@@ -323,6 +325,11 @@ Resources:
                 Action:
                   - s3:ListBucket
                   - s3:GetObject
+              - Sid: S3ListAllBuckets
+                Effect: Allow
+                Resource: '*'
+                Action:
+                  - s3:ListAllMyBuckets
               - Sid: PXFExternalTableS3Access
                 Effect: Allow
                 Resource:
@@ -333,6 +340,7 @@ Resources:
                   - s3:GetBucketLocation
                   - s3:GetObject
                   - s3:PutObject
+                  - s3:DeleteObject
                   - s3:AbortMultipartUpload
               - Sid: SSMParameterAccess
                 Effect: Allow
