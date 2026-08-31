@@ -74,11 +74,16 @@ create_example_dr_config()
 	echo "  bucket: <bucket_name>" >> ${dr_config}
 	echo "  prefix: dr-backups" >> ${dr_config}
 	echo "  region: ${REGION}" >> ${dr_config}
+	echo "" >> ${dr_config}
+	echo "barman_options:" >> ${dr_config}
+	echo "  compression: gzip" >> ${dr_config}
+	echo "  compression_level: 6" >> ${dr_config}
 	chown ${ADMIN}:${ADMIN} ${dr_config}
 }
 
+install_dr
+
 if [[ "${NODE_INDEX}" -eq "0" || "${NODE_INDEX}" -eq "1" ]]; then
-	install_dr
 	create_example_gpbackup_config
 	create_example_dr_config
 fi
