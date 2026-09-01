@@ -45,20 +45,19 @@ create_directories()
 
 	rm -rf ${data_dir}/coordinator
 	mkdir ${data_dir}/coordinator
-	rm -rf ${s3_data_dir}/coordinator
-	mkdir -p ${s3_data_dir}/coordinator/gpseg-1
 	rm -rf ${data_dir}/primary*; 
 	mkdir -p ${data_dir}/primary
-	rm -rf ${s3_data_dir}/primary* 
-	mkdir -p ${s3_data_dir}/primary 
-
-	#can't use recursive on mounts because EFS has directories/files that must be owned by root
+	#can't use recursive on mount because EFS has directories/files that must be owned by root
 	chown ${ADMIN}:${ADMIN} ${data_dir}
 	chown ${ADMIN}:${ADMIN} ${data_dir}/coordinator
 	chown ${ADMIN}:${ADMIN} ${data_dir}/primary
+
+	#default_tablespace
+	rm -rf ${s3_data_dir}/whpg
+	mkdir -p ${s3_data_dir}/whpg
+	#can't use recursive on mount because S3Files has directories/files that must be owned by root
 	chown ${ADMIN}:${ADMIN} ${s3_data_dir}
-	chown ${ADMIN}:${ADMIN} ${s3_data_dir}/primary
-	chown -R ${ADMIN}:${ADMIN} ${s3_data_dir}/coordinator
+	chown ${ADMIN}:${ADMIN} ${s3_data_dir}/whpg
 }
 create_initsystem_file()
 {
@@ -96,51 +95,20 @@ init_system()
 	parallel_processes="${SEGS_PER_NODE}"
 	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; cd /home/${ADMIN}; gpinitsystem -c ${INSTALL_DIR}/gpinitsystem_config -a -B ${parallel_processes}"
 }
-move_base_dir()
+set_tablespaces()
 {
-	#stop database
-	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; gpstop -a -M immediate" || true
-
-	#move coordinator base directory
-	echo "mv ${data_dir}/coordinator/gpseg-1/base ${s3_data_dir}/coordinator/gpseg-1/"
-	mv ${data_dir}/coordinator/gpseg-1/base ${s3_data_dir}/coordinator/gpseg-1/ > ${INSTALL_DIR}/mv_base_coordinator.log 2>&1 &
-
-	#move segments base directories
- 	for i in $(ls ${data_dir}/primary/); do 
-		echo "mkdir ${s3_data_dir}/primary/${i}"
-		mkdir ${s3_data_dir}/primary/${i}
-		echo "chown ${ADMIN}:${ADMIN} ${s3_data_dir}/primary/${i}"
-		chown ${ADMIN}:${ADMIN} ${s3_data_dir}/primary/${i}
-		echo "mv ${data_dir}/primary/${i}/base ${s3_data_dir}/primary/${i}"
-		mv ${data_dir}/primary/${i}/base ${s3_data_dir}/primary/${i} > ${INSTALL_DIR}/mv_base_${i}.log 2>&1 &
-	done
-	count=$(ps -ef | grep mv | grep base | grep -v grep | wc -l)
-	while [ "${count}" -gt "0" ]; do
-		echo -ne "."
-		sleep 5
-		count=$(ps -ef | grep mv | grep base | grep -v grep | wc -l)
-	done
-	echo "."
-
-	echo "Add symbolic links"
-	echo "ln -s ${s3_data_dir}/coordinator/gpseg-1/base ${data_dir}/coordinator/gpseg-1/base"
-	ln -s ${s3_data_dir}/coordinator/gpseg-1/base ${data_dir}/coordinator/gpseg-1/base
-	for i in $(ls ${data_dir}/primary/); do 
-		echo "ln -s ${s3_data_dir}/primary/${i}/base ${data_dir}/primary/${i}/base"
-		ln -s ${s3_data_dir}/primary/${i}/base ${data_dir}/primary/${i}/base
-	done
-
-	#start database
-	su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; gpstart -a"
-
-}
-set_temp_tablespace()
-{
+	#remove files from local NVMe disks on all nodes
 	su -l ${ADMIN} -c "gpssh -f ${INSTALL_DIR}/all_nodes.txt \"rm -rf /cache1/gptemp/*\""
-	su -l ${ADMIN} -c "psql -c \"drop tablespace if exists gptemp;\""
-	su -l ${ADMIN} -c "psql -c \"create tablespace gptemp location '/cache1/gptemp';\""
-	su -l ${ADMIN} -c "gpconfig -c temp_tablespaces -v \"gptemp\"; gpstop -u"
+	#drop tablespaces
+	su -l ${ADMIN} -c "psql -c \"DROP TABLESPACE IF EXISTS gptemp;\""
+	su -l ${ADMIN} -c "psql -c \"DROP TABLESPACE IF EXISTS s3data;\""
+	#create tablespaces
+	su -l ${ADMIN} -c "psql -c \"CREATE TABLESPACE gptemp LOCATION '/cache1/gptemp';\""
+	su -l ${ADMIN} -c "psql -c \"CREATE TABLESPACE s3data LOCATION '/s3data/whpg';\""
+	#configure whpg to use tablespaces
+	su -l ${ADMIN} -c "gpconfig -c temp_tablespaces -v \"gptemp\"; gpconfig -c default_tablespace -v \"s3data\"; gpstop -u"
 
+	#save info from catalog so local NVMe disks can be reconfigured on boot
 	catalog_version=$(su -l ${ADMIN} -c "source /home/${ADMIN}/.bashrc; pg_controldata \${COORDINATOR_DATA_DIRECTORY} | grep \"Catalog version number\"" | awk -F ':' '{print $2}' | xargs)
 	temp_dir="GPDB_7_${catalog_version}"
 	echo "${temp_dir}" > ${s3_data_dir}/temp_dir.txt
@@ -213,7 +181,7 @@ install_pgaa()
 	su -l ${ADMIN} -c "gpstop -ra"
 	su -l ${ADMIN} -c "psql -c \"create extension pgaa cascade;\""
 }
-setup_s3()
+setup_pxf_s3()
 {
 	pxf_profile="/usr/local/edb-whpg7-pxf/servers/default/s3-site.xml"
 	echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" > ${pxf_profile}
@@ -248,11 +216,10 @@ if [ "${NODE_INDEX}" -eq "0" ]; then
 	create_directories
 	create_initsystem_file
 	init_system
-	move_base_dir
-	set_temp_tablespace
+	set_tablespaces
 	configure_memory
 	install_pxf
 	install_pgaa
-	setup_s3
+	setup_pxf_s3
 	install_madlib
 fi
