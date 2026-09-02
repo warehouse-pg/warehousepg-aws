@@ -208,6 +208,20 @@ install_madlib()
 	echo "/usr/local/madlib/bin/madpack -s madlib -p greenplum -c ${ADMIN}@cdw:5432/${DATABASE_NAME} install"
 	su -l ${ADMIN} -c "/usr/local/madlib/bin/madpack -s madlib -p greenplum -c ${ADMIN}@cdw:5432/${DATABASE_NAME} install"
 }
+configure_analyzedb()
+{
+	#analyzedb
+	echo "rm -rf ${data_dir}/coordinator/gpseg-1/db_analyze"
+	rm -rf ${data_dir}/coordinator/gpseg-1/db_analyze
+	echo "rm -rf /home/${ADMIN}/db_analyze"
+	rm -rf /home/${ADMIN}/db_analyze
+	echo "mkdir /home/${ADMIN}/db_analyze"
+	mkdir /home/${ADMIN}/db_analyze
+	echo "chown ${ADMIN}:${ADMIN} /home/${ADMIN}/db_analyze"
+	chown ${ADMIN}:${ADMIN} /home/${ADMIN}/db_analyze
+	echo "ln -s /home/${ADMIN}/db_analyze ${data_dir}/coordinator/gpseg-1/db_analyze"
+	ln -s /home/${ADMIN}/db_analyze ${data_dir}/coordinator/gpseg-1/db_analyze
+}
 
 set_env
 
@@ -222,4 +236,5 @@ if [ "${NODE_INDEX}" -eq "0" ]; then
 	install_pgaa
 	setup_pxf_s3
 	install_madlib
+	configure_analyzedb
 fi
