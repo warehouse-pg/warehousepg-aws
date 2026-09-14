@@ -153,7 +153,7 @@ Parameters:
   AMI:
     Type: AWS::EC2::Image::Id
     Description: The ami id. The example on is Rocky Linux 9 for us-east-1.
-    Default: ami-0f2425d4cce4e97dd
+    Default: ami-0a5e563b87d8a92e0
 
   DatabaseName:
     Type: String
