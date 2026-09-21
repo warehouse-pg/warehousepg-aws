@@ -13,6 +13,12 @@ Outputs:
   WEMPassword:
     Value: !Select [3, !Split ['"', !GetAtt WEMPasswordOutput.Data]]
     Description: WarehousePG Enterprise Manager temporary password
+  CoordinatorPublicIp:
+    Description: Public IP of the coordinator
+    Value: !GetAtt CoordinatorNode.PublicIp
+  CoordinatorPrivateIp:
+    Description: Private IP of the coordinator
+    Value: !GetAtt CoordinatorNode.PrivateIp
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -152,8 +158,8 @@ Parameters:
 
   AMI:
     Type: AWS::EC2::Image::Id
-    Description: The ami id. The example on is Rocky Linux 9 for us-east-1.
-    Default: ami-0a5e563b87d8a92e0
+    Description: The ami id. The example on is Rocky Linux 9 for us-east-2.
+    Default: ami-0077ea0d1a8b35e1e
 
   DatabaseName:
     Type: String
