@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for VPC infrastructure with public and private subnets, NAT Gateway, and S3 VPC Endpoint'
+
+Parameters:
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Default: us-west-2a
+    Description: The Availability Zone in which to create the subnets, NAT Gateway, and Elastic IP.
+
+Resources:
+  # VPC Resource - Creates the main Virtual Private Cloud
+  DemoVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpc'
+
+  # S3 VPC Endpoint - Gateway endpoint for S3 access without internet gateway
+  DemoVPCEndpointS3:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref DemoVPC
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref DemoRouteTablePrivate1UsWest2a
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-vpce-s3'
+
+  # Public Subnet
+  DemoSubnetPublic1UsWest2a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      CidrBlock: 10.0.0.0/20
+      AvailabilityZone: !Ref AvailabilityZone
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-subnet-public1-${AvailabilityZone}'
+
+  # Private Subnet
+  DemoSubnetPrivate1UsWest2a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DemoVPC
+      CidrBlock: 10.0.128.0/20
+      AvailabilityZone: !Ref AvailabilityZone
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-subnet-private1-${AvailabilityZone}'
+
+  # Internet Gateway - Provides internet access for public subnets
+  DemoInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-igw'
+
+  # Attach Internet Gateway to VPC
+  DemoVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref DemoVPC
+      InternetGatewayId: !Ref DemoInternetGateway
+
+  # Public Route Table - Routes traffic to Internet Gateway
+  DemoRouteTablePublic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-rtb-public'
+
+  # Public Route - Default route to Internet Gateway
+  DemoRoutePublic:
+    Type: AWS::EC2::Route
+    DependsOn: DemoVPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref DemoRouteTablePublic
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref DemoInternetGateway
+
+  # Associate Public Route Table with Public Subnet
+  DemoSubnetRouteTableAssociationPublic1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DemoSubnetPublic1UsWest2a
+      RouteTableId: !Ref DemoRouteTablePublic
+
+  # Elastic IP for NAT Gateway
+  DemoEIPUsWest2a:
+    Type: AWS::EC2::EIP
+    DependsOn: DemoVPCGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-eip-${AvailabilityZone}'
+
+  # NAT Gateway - Provides internet access for private subnets
+  DemoNATGatewayPublic1UsWest2a:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt DemoEIPUsWest2a.AllocationId
+      SubnetId: !Ref DemoSubnetPublic1UsWest2a
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-nat-public1-${AvailabilityZone}'
+
+  # Private Route Table - Routes traffic to NAT Gateway
+  DemoRouteTablePrivate1UsWest2a:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DemoVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-rtb-private1-${AvailabilityZone}'
+
+  # Private Route - Default route to NAT Gateway
+  DemoRoutePrivate1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref DemoRouteTablePrivate1UsWest2a
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref DemoNATGatewayPublic1UsWest2a
+
+  # Associate Private Route Table with Private Subnet
+  DemoSubnetRouteTableAssociationPrivate1:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DemoSubnetPrivate1UsWest2a
+      RouteTableId: !Ref DemoRouteTablePrivate1UsWest2a
+
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref DemoVPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VPC-ID'
+
+  PublicSubnetId:
+    Description: Public Subnet ID
+    Value: !Ref DemoSubnetPublic1UsWest2a
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicSubnet1-ID'
+
+  PrivateSubnetId:
+    Description: Private Subnet ID
+    Value: !Ref DemoSubnetPrivate1UsWest2a
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateSubnet1-ID'
+
+  NATGatewayId:
+    Description: NAT Gateway ID
+    Value: !Ref DemoNATGatewayPublic1UsWest2a
+    Export:
+      Name: !Sub '${AWS::StackName}-NATGateway-ID'
+
+  S3VPCEndpointId:
+    Description: S3 VPC Endpoint ID
+    Value: !Ref DemoVPCEndpointS3
+    Export:
+      Name: !Sub '${AWS::StackName}-S3VPCEndpoint-ID'
