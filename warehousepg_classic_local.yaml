@@ -323,6 +323,8 @@ Resources:
                 Action:
                   - ec2:DescribeInstances
                   - ec2:DescribeInstanceStatus
+                  - ec2:DescribeSecurityGroups
+                  - ec2:AuthorizeSecurityGroupIngress
               - Sid: S3DeploymentBucketReadOnly
                 Effect: Allow
                 Resource:

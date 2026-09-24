@@ -55,12 +55,12 @@ Metadata:
 Parameters:
   S3StorageBucket:
     Type: String
-    Description: Existing bucket for WarehousePG data storage.
-    Default: fcto-warehousepg-data
+    Description: Existing bucket for WarehousePG data storage that is in the same Region.
+    Default: demo-warehousepg-s3-us-east-2
 
   DeploymentBucket:
     Type: String
-    Description: This bucket contains the unzipped scripts used for completing the deployment of WarehousePG
+    Description: This bucket contains the unzipped scripts used for completing the deployment of WarehousePG.
     Default: warehousepg-userdata
 
   InternetAccess:
@@ -329,6 +329,8 @@ Resources:
                 Action:
                   - ec2:DescribeInstances
                   - ec2:DescribeInstanceStatus
+                  - ec2:DescribeSecurityGroups
+                  - ec2:AuthorizeSecurityGroupIngress
               - Sid: S3AccountLevel
                 Effect: Allow
                 Resource: '*'
