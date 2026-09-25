@@ -42,21 +42,6 @@ start_clickhouse()
 	echo "systemctl restart clickhouse-server"
 	systemctl restart clickhouse-server
 }
-configure_hba()
-{	
-	echo "add missing trust for segments to connect to coordinator"
-	if [ "${INSTANCE_COUNT}" -gt "1" ]; then
-		standby=$(head -n1 ${INSTALL_DIR}/segment_nodes.txt)
-		rm -f ${INSTALL_DIR}/new_hba.txt
-		for i in $(tail -n +2 ${INSTALL_DIR}/segment_nodes.txt); do
-			echo "host all ${ADMIN} ${i} trust" >> ${INSTALL_DIR}/new_hba.txt
-		done
-		su -l ${ADMIN} -c "cat ${INSTALL_DIR}/new_hba.txt >> /data/coordinator/gpseg-1/pg_hba.conf"
-		su -l ${ADMIN} -c "scp ${INSTALL_DIR}/new_hba.txt ${standby}:${INSTALL_DIR}/new_hba.txt"
-		su -l ${ADMIN} -c "ssh ${standby} 'cat ${INSTALL_DIR}/new_hba.txt >> /data/coordinator/gpseg-1/pg_hba.conf'"
-		su -l ${ADMIN} -c "gpstop -u"
-	fi
-}	
 install_wem()
 {
 	echo "install wem"
