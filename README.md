@@ -25,59 +25,52 @@ The template creates the VPC, two subnets (public and private), and three gatewa
 ### Rocky Linux 9 AMI Subscription
 The CloudFormation templates were designed with Rocky Linux 9, which is freely available via an AMI. In order to use this AMI, you must first subscribe to this product listing.
 
-In the AWS console, go to the AWS Marketplace.
 
-![Marketplace1](images/Marketplace1.png)
-
-Search for Rocky Linux 9.
-
-![Marketplace2](images/Marketplace2.png)
-
-Pick the "Rocky Linux 9 (Official) - x86_64" result by "Rocky Linux".
-
-![Marketplace3](images/Marketplace3.png)
-
-Click on "View purchase options".
-
-![Marketplace4](images/Marketplace4.png)
-
-Click on "Subscribe". This is a free product.
-
-![Marketplace5](images/Marketplace5.png)
+|  |  |
+|------|-------|
+| In the AWS console, go to the AWS Marketplace | <img src="images/Marketplace1.png" width="600" alt="Marketplace1"> |
+| Search for Rocky Linux 9 | <img src="images/Marketplace2.png" width="600" alt="Marketplace2"> |
+| Pick the "Rocky Linux 9 (Official) - x86_64" result by "Rocky Linux" | <img src="images/Marketplace3.png" width="600" alt="Marketplace3"> |
+| Click on "View purchase options" | <img src="images/Marketplace4.png" width="600" alt="Marketplace4"> | 
+| Click on "Subscribe". This is a free product. |  <img src="images/Marketplace5.png" width="600" alt="Marketplace5"> |
 
 #### Get AMI ID
 After subscribing to the Rocky Linux 9 product, you need the AMI ID, which is unique per Region. There are a few ways to find the ID; here is one way using the AWS console.
 
-Go to EC2 and Instances. Click "Launch instances".
+|  |  |
+|------|-------|
+| Go to EC2 and Instances. Click "Launch instances". | <img src="images/EC21.png" width="600" alt="EC21"> |
+| Scroll down to the AMI section and click on "Browse more AMIs". | <img src="images/EC22.png" width="600" alt="EC22"> |
+| Search for Rocky Linux 9 again and find the product listing you subscribed to earlier. Then click "Select". | <img src="images/EC23.png" width="600" alt="EC23"> |
+| Click "Continue to launch". | <img src="images/EC24.png" width="600" alt="EC24"> |
+| A summary will include the AMI ID. Capture this value and save it for later — you'll need it when launching the WarehousePG or PGD templates below. | <img src="images/EC25.png" width="600" alt="EC25"> |
 
-![EC21](images/EC21.png)
-
-Scroll down to the AMI section and click on "Browse more AMIs".
-
-![EC22](images/EC22.png)
-
-Search for Rocky Linux 9 again and find the product listing you subscribed to earlier. Then click "Select".
-
-![EC23](images/EC23.png)
-
-Click "Continue to launch".
-
-![EC24](images/EC24.png)
-
-A summary will include the AMI ID. Capture this value and save it for later — you'll need it when launching the WarehousePG or PGD templates below.
-
-![EC25](images/EC25.png)
 
 ### Key-pair
-This is a standard public/private key pair used to connect to AWS instances. Create one in the AWS console under "Key-pair".
+This is a standard public/private key pair used to connect to AWS instances. 
 
-![keypair](images/keypair.png)
+|  |  |
+|------|-------|
+| Create one in the AWS console under "Key-pair". | <img src="images/keypair.png" width="600" alt="keypair"> |
 
 Save the private key it creates in a safe place. It will be used to `ssh` to the EC2 instances that the PGD or WarehousePG templates create.
 
 ```
 ssh -i my-key-pair.pem rocky@<public_ip_address>
 ```
+
+### EnterpriseDB Subscription Token
+The WarehousePG and PGD templates described below include a parameter for the EDB Subscription Token. This token is available to customers and for individuals wanting to evaluate EDB products.
+
+|  |  |
+|------|-------|
+| Step 1: Click Sign In | <img src="images/token1.png" width="600" alt="token1"> |
+| Step 2: Create an EDB account | <img src="images/token2.png" width="600" alt="token2"> |
+| Step 3: Submit information | <img src="images/token3.png" width="600" alt="token3"> |
+| Step 4: Copy subscription token | <img src="images/token4.png" width="600" alt="token4"> |
+
+
+Use this string as the `AccessToken` or `EDBSubscriptionToken` in the templates below.
 
 ## WarehousePG Templates
 
@@ -94,7 +87,7 @@ ssh -i my-key-pair.pem rocky@<public_ip_address>
 | **Region failure** | < 1 hr RPO with S3 replication | Data loss since last backup copied out of Region | Data loss since last backup or last EBS snapshot cross-region copy |
 
 ### CloudFormation Stack with S3 Storage
-![Architecture](images/warehousepg_architecture_detailed.png)
+<img src="images/warehousepg_architecture_detailed.png" width="600" alt="warehousepg_architecture_detailed">
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation, leveraging local SSD for caching, S3 for data storage, and EFS for database files other than data.
 
 #### Overview
@@ -107,42 +100,36 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * Local NVMe caching so performance stays consistent even with a busy cluster (no bursting exhaustion)
 
 #### Create Stack
-1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_s3.yaml` in this repo.
-
-![CFT1](/images/cft1.png)
-
-2. Fill out the parameters
-- `Stack name`: this is mandatory.
-
-**Deployment Scripts**
-- `DeploymentBucket`: name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata/` directory to this location. Use the `upload.sh` script to place the files in your bucket.
-
-**WarehousePG Configuration**
-- `AccessToken`: the EDB access token for downloading EDB software.
-- `DatabaseName`: name of the default database (PGDATABASE) created.
-
-**Compute**
-- `NodeType`: specifies the instance type in AWS. The instance type has a local SSD drive for caching.
-- `SegmentNodeCount`: 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes.
-- `AMI`: the existing AWS AMI ID valid for your region — this is the ID you captured in the Prerequisites section above. The default is the AMI for Rocky Linux 9, and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack. NOTE: do not pick an AMI with LVM enabled.
-- `KeyPair`: specifies the existing key-pair for SSH access to the coordinator node.
-- `TimeZone`: sets the TZ on all nodes.
-
-**Network**
-- `InternetAccess`: if true, the coordinator node will have access to the Internet.
-- `SSHCIDR`: make this as restrictive as possible. Only used when `InternetAccess` is true, and only applies to the coordinator node.
-- `VPC`: existing VPC to deploy into.
-- `PrivateSubnet`: private subnet where the compute nodes will be deployed.
-- `PublicSubnet`: public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing private subnet here if you don't wish to allow Internet access to the coordinator node.
-
-**Storage**
-- `S3StorageBucket`: the existing S3 bucket where the data will reside. You can have multiple clusters using the same bucket, but each cluster will have a unique S3 filesystem. Versioning is automatically enabled on the bucket with a policy of expiring non-current file versions after 1 day. An S3 filesystem and mount target are created for this Stack and used by the EC2 instances in the cluster.
+|  |  |
+|------|-------|
+| 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_s3.yaml` in this repo. | <img src="images/cft1.png" width="600" alt="cft1"> |
+| 2. Fill out the parameters | - `Stack name`: this is mandatory. |
+| **Deployment Scripts** | |
+| - `DeploymentBucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata/` directory to this location. Use the `upload.sh` script to place the files in your bucket. |
+| **WarehousePG Configuration** | |
+| - `AccessToken` | The EDB access token for downloading EDB software. |
+| - `DatabaseName` | The name of the default database (PGDATABASE) created. |
+| **Compute** | | 
+| - `NodeType` | Specifies the instance type in AWS. The instance type has a local SSD drive for caching. |
+| - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
+| - `AMI` | The existing AWS AMI ID valid for your region — this is the ID you captured in the Prerequisites section above. The default is the AMI for Rocky Linux 9, and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack. NOTE: do not pick an AMI with LVM enabled. |
+| - `KeyPair` | Specifies the existing key-pair for SSH access to the coordinator node. |
+| - `TimeZone` | Sets the TZ on all nodes. |
+| **Network** | | 
+| - `InternetAccess` | If true, the coordinator node will have access to the Internet. |
+| - `SSHCIDR` | Make this as restrictive as possible. Only used when `InternetAccess` is true, and only applies to the coordinator node. |
+| - `VPC` | Existing VPC to deploy into. |
+| - `PrivateSubnet` | Private subnet where the compute nodes will be deployed. |
+| - `PublicSubnet` |  Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing private subnet here if you don't wish to allow Internet access to the coordinator node. |
+| **Storage** | |
+| - `S3StorageBucket`| The existing S3 bucket where the data will reside. You can have multiple clusters using the same bucket, but each cluster will have a unique S3 filesystem. Versioning is automatically enabled on the bucket with a policy of expiring non-current file versions after 1 day. An S3 filesystem and mount target are created for this Stack and used by the EC2 instances in the cluster. |
 
 #### Delete Stack
 Deleting a Stack removes all provisioned resources, including the data. AWS recommends using a lifecycle rule to remove a large number of files from a bucket, so when a Stack is deleted, a lifecycle rule is created to remove the bucket path used by the Stack after 1 day.
 
 ### CloudFormation Classic Stack with Local Storage
-![Architecture](/images/warehousepg_classic_local_architecture.png)
+<img src="images/warehousepg_classic_local_architecture.png" width="600" alt="warehousepg_classic_local_architecture">
+
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation, leveraging local NVMe storage and database mirroring.
 
 #### Overview
@@ -156,42 +143,36 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * Fixed storage amount and performance characteristics
 
 #### Create Stack
-1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic_local.yaml` in this repo.
-
-![CFT1](/images/cft2.png)
-
-2. Fill out the parameters
-- `Stack name`: this is mandatory.
-
-**Deployment Scripts**
-- `S3Bucket`: name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use the `upload.sh` script to place the files in your bucket.
-
-**WarehousePG Configuration**
-- `AccessToken`: the EDB access token for downloading EDB software.
-- `DatabaseName`: name of the default database (PGDATABASE) created.
-
-**Compute**
-- `NodeType`: specifies the instance type in AWS. This instance type uses local storage.
-- `SegmentNodeCount`: 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes.
-- `AMI`: the existing AWS AMI ID valid for your region — this is the ID you captured in the Prerequisites section above. The default is the AMI for Rocky Linux 9, and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack. NOTE: do not pick an AMI with LVM enabled.
-- `KeyPair`: specifies the existing key-pair for SSH access to the coordinator node.
-- `TimeZone`: sets the TZ on all nodes.
-
-**Network**
-- `InternetAccess`: if true, the coordinator node will have access to the Internet.
-- `SSHCIDR`: make this as restrictive as possible. Only used when `InternetAccess` is true, and only applies to the coordinator node.
-- `VPC`: existing VPC to deploy into.
-- `PrivateSubnet`: private subnet where the compute nodes will be deployed.
-- `PublicSubnet`: public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing private subnet here if you don't wish to allow Internet access to the coordinator node.
-
-**Storage**
-- Fixed amount per node
-- `i4i.2xlarge` has 1 x 1.875 TB disk per node
-- `i4i.4xlarge` has 1 x 3.750 TB disk per node
-- `i4i.8xlarge` has 2 x 3.750 TB disks per node
+|  |  |
+|------|-------|
+| 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic_local.yaml` in this repo. | <img src="images/cft2.png" width="600" alt="cft2"> |
+| 2. Fill out the parameters | | 
+| - `Stack name` | This is mandatory. |
+| **Deployment Scripts** | |
+| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use the `upload.sh` script to place the files in your bucket. |
+| **WarehousePG Configuration** | |
+| - `AccessToken` | The EDB access token for downloading EDB software. |
+| - `DatabaseName` | The name of the default database (PGDATABASE) created. |
+| **Compute** | | 
+| - `NodeType` | Specifies the instance type in AWS. This instance type uses local storage. |
+| - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
+| - `AMI` | The existing AWS AMI ID valid for your region — this is the ID you captured in the Prerequisites section above. The default is the AMI for Rocky Linux 9, and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack. NOTE: do not pick an AMI with LVM enabled. |
+| - `KeyPair` | Specifies the existing key-pair for SSH access to the coordinator node. |
+| - `TimeZone` |  Sets the TZ on all nodes. |
+| **Network** | | 
+| - `InternetAccess` | If true, the coordinator node will have access to the Internet. |
+| - `SSHCIDR` |  Make this as restrictive as possible. Only used when `InternetAccess` is true, and only applies to the coordinator node. |
+| - `VPC` | Existing VPC to deploy into. |
+| - `PrivateSubnet` | Private subnet where the compute nodes will be deployed. |
+| - `PublicSubnet` |  Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing private subnet here if you don't wish to allow Internet access to the coordinator node. |
+| **Storage** | | 
+| - Fixed amount per node | | 
+| - `i4i.2xlarge` | 1 x 1.875 TB disk per node |
+| - `i4i.4xlarge` | 1 x 3.750 TB disk per node |
+| - `i4i.8xlarge` | 2 x 3.750 TB disks per node |
 
 ### CloudFormation Classic Stack with EBS Storage
-![Architecture](/images/warehousepg_classic_ebs_architecture.png)
+<img src="images/warehousepg_classic_ebs_architecture.png" width="600" alt="warehousepg_classic_ebs_architecture">
 Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormation, leveraging EBS storage and database mirroring.
 
 #### Overview
@@ -203,40 +184,35 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 * Same query performance as the S3 template (1 and 5 concurrent users, before EBS bursting is exhausted)
 * EBS bursting can be exhausted with a busy cluster, causing performance to slow down
 
+
 #### Create Stack
-1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic_ebs.yaml` in this repo.
-
-![CFT1](/images/cft2.png)
-
-2. Fill out the parameters
-- `Stack name`: this is mandatory.
-
-**Deployment Scripts**
-- `S3Bucket`: name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use the `upload.sh` script to place the files in your bucket.
-
-**WarehousePG Configuration**
-- `AccessToken`: the EDB access token for downloading EDB software.
-- `DatabaseName`: name of the default database (PGDATABASE) created.
-
-**Compute**
-- `NodeType`: specifies the instance type in AWS. This instance type uses EBS storage only.
-- `SegmentNodeCount`: 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes.
-- `AMI`: the existing AWS AMI ID valid for your region — this is the ID you captured in the Prerequisites section above. The default is the AMI for Rocky Linux 9, and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack. NOTE: do not pick an AMI with LVM enabled.
-- `KeyPair`: specifies the existing key-pair for SSH access to the coordinator node.
-- `TimeZone`: sets the TZ on all nodes.
-
-**Network**
-- `InternetAccess`: if true, the coordinator node will have access to the Internet.
-- `SSHCIDR`: make this as restrictive as possible. Only used when `InternetAccess` is true, and only applies to the coordinator node.
-- `VPC`: existing VPC to deploy into.
-- `PrivateSubnet`: private subnet where the compute nodes will be deployed.
-- `PublicSubnet`: public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing private subnet here if you don't wish to allow Internet access to the coordinator node.
-
-**Storage**
-- `DiskType`: specifies the disk type. SC1 is ideal for testing, and ST1 for production. For extremely busy workloads, GP3 can be used, but it costs the most.
-- `CoordinatorDiskSize`: the data volume size on the coordinator.
-- `SegmentDiskSize`: specifies the data volume size on each segment node. You can also specify the number of data volumes per node.
-
+|  |  |
+|------|-------|
+| 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_classic_ebs.yaml` in this repo. | <img src="images/cft2.png" width="600" alt="cft2"> | 
+| 2. Fill out the parameters | | 
+| - `Stack name` | This is mandatory. |
+| **Deployment Scripts** | |
+| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use the `upload.sh` script to place the files in your bucket. |
+| **WarehousePG Configuration** | | 
+| - `AccessToken` | The EDB access token for downloading EDB software. |
+| - `DatabaseName` | The name of the default database (PGDATABASE) created. |
+| **Compute** | |
+| - `NodeType` | Specifies the instance type in AWS. This instance type uses EBS storage only. |
+| - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
+| - `AMI` | The existing AWS AMI ID valid for your region — this is the ID you captured in the Prerequisites section above. The default is the AMI for Rocky Linux 9, and the scripts have been written for this operating system. Be sure you are subscribed to the AMI before launching the Stack. NOTE: do not pick an AMI with LVM enabled. |
+| - `KeyPair` | Specifies the existing key-pair for SSH access to the coordinator node. |
+| - `TimeZone` | Sets the TZ on all nodes. |
+| **Network** | | 
+| - `InternetAccess` | If true, the coordinator node will have access to the Internet. |
+| - `SSHCIDR` | Make this as restrictive as possible. Only used when `InternetAccess` is true, and only applies to the coordinator node. |
+| - `VPC` | Existing VPC to deploy into. |
+| - `PrivateSubnet` | Private subnet where the compute nodes will be deployed. |
+| - `PublicSubnet` | Public subnet where the coordinator node will be deployed. Be sure to deploy both subnets in the same AZ! You can also specify the existing private subnet here if you don't wish to allow Internet access to the coordinator node. |
+| **Storage** | | 
+| - `DiskType` | Specifies the disk type. SC1 is ideal for testing, and ST1 for production. For extremely busy workloads, GP3 can be used, but it costs the most. |
+| - `CoordinatorDiskSize` | The data volume size on the coordinator. |
+| - `SegmentDiskSize` | Specifies the data volume size on each segment node. You can also specify the number of data volumes per node. |
+ 
 #### Delete Stack
 All resources provisioned by the Stack are deleted, including the data. Data is persisted on EBS volumes, which are immediately deleted when the Stack is deleted.
 
