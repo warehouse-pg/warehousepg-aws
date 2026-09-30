@@ -104,7 +104,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 |------|-------|
 | 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_s3.yaml` in this repo. | <img src="images/cft1.png" width="600" alt="cft1"> |
 | 2. Fill out the parameters  | |
-| - `Stack name`: this is mandatory. |
+| - `Stack name` | This is mandatory. |
 | **Deployment Scripts** | |
 | - `DeploymentBucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata/` directory to this location. Use the `upload.sh` script to place the files in your bucket. |
 | **WarehousePG Configuration** | |
