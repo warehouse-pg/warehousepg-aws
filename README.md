@@ -103,7 +103,8 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 |  |  |
 |------|-------|
 | 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `warehousepg_s3.yaml` in this repo. | <img src="images/cft1.png" width="600" alt="cft1"> |
-| 2. Fill out the parameters | - `Stack name`: this is mandatory. |
+| 2. Fill out the parameters  | |
+| - `Stack name`: this is mandatory. |
 | **Deployment Scripts** | |
 | - `DeploymentBucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata/` directory to this location. Use the `upload.sh` script to place the files in your bucket. |
 | **WarehousePG Configuration** | |
@@ -222,26 +223,23 @@ All resources provisioned by the Stack are deleted, including the data. Data is 
 The `pgd.yaml` template deploys a 2-node EDB Postgres Distributed (PGD) cluster and configures PGD Always-On Architecture (PGAA) using the S3 bucket you specify.
 
 *Note: This template is made available to demonstrate the integration of PGD with WarehousePG via PGAA.*
-
 #### Create Stack
-1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `pgd.yaml` in this repo.
-2. Fill out the parameters:
-
-**PGD Configuration**
-- `EDBSubscriptionToken`: your EDB Repos 2.0 subscription token (from https://www.enterprisedb.com/repos-downloads).
-
-**Compute**
-- `NodeType`: EC2 instance type for each PGD node. Allowed values: `t3.medium` (default), `t3.large`, `t3.xlarge`, `m6i.large`, `m6i.xlarge`, `m5.large`, `m5.xlarge`.
-- `RockyLinux9AmiId`: AMI ID for Rocky Linux 9 (x86_64) — this is the ID you captured in the Prerequisites section above. AMI IDs are region-specific, so override the default if you're deploying outside of the template's default region.
-- `KeyPairName`: existing EC2 key pair for SSH access to the nodes.
-
-**Network**
-- `VpcId`: existing VPC to deploy the PGD nodes into.
-- `SubnetId`: existing subnet for both nodes. Must route to/from the internet if you want the public IPs reachable.
-- `SSHLocation`: CIDR block allowed to SSH into the nodes (e.g. `203.0.113.4/32`). Make this as restrictive as possible.
-
-**Storage**
-- `S3BucketName`: existing S3 bucket used as the PGAA/Iceberg analytics storage location. The bucket must already exist — the instance role is granted full S3 access, but this template does not create the bucket itself.
+|  |  |
+|------|-------|
+| 1. In the AWS Console, go to CloudFormation and create a new Stack. Pick "upload a template file" and navigate to the file `pgd.yaml` in this repo. | <img src="images/stack_pgd.png" width="600" alt="stack_pgd"> |
+| 2. Fill out the parameters: | |
+| **PGD Configuration** | |
+| - `EDBSubscriptionToken` | Your EDB Repos 2.0 subscription token (from https://www.enterprisedb.com/repos-downloads). |
+| **Compute** | |
+| - `NodeType` | EC2 instance type for each PGD node. Allowed values: `t3.medium` (default), `t3.large`, `t3.xlarge`, `m6i.large`, `m6i.xlarge`, `m5.large`, `m5.xlarge`. |
+| - `RockyLinux9AmiId` | AMI ID for Rocky Linux 9 (x86_64) — this is the ID you captured in the Prerequisites section above. AMI IDs are region-specific, so override the default if you're deploying outside of the template's default region. |
+| - `KeyPairName` | Existing EC2 key pair for SSH access to the nodes. |
+| **Network** | | 
+| - `VpcId` | Existing VPC to deploy the PGD nodes into. |
+| - `SubnetId` | Existing subnet for both nodes. Must route to/from the internet if you want the public IPs reachable. |
+| - `SSHLocation` | CIDR block allowed to SSH into the nodes (e.g. `203.0.113.4/32`). Make this as restrictive as possible. |
+| **Storage** | |
+| - `S3BucketName` | Existing S3 bucket used as the PGAA/Iceberg analytics storage location. The bucket must already exist — the instance role is granted full S3 access, but this template does not create the bucket itself. |
 
 #### Delete Stack
 Deleting a Stack removes the EC2 instances and other resources it provisioned. The S3 bucket used for PGAA storage is not managed by this stack and is not deleted.
