@@ -23,7 +23,7 @@ source ~/jupyter_env/bin/activate
 
 #install python packages
 pip install --upgrade pip
-pip install notebook pandas psycopg2-binary matplotlib pypmml geopandas sqlalchemy pandas seaborn jupysql
+pip install notebook pandas psycopg2-binary matplotlib pypmml geopandas sqlalchemy pandas seaborn jupysql psycopg
 
 #start background process
 nohup jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token='' --NotebookApp.password='' > ~/jupyter.log 2>&1 &
