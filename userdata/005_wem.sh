@@ -52,7 +52,7 @@ configure_wem()
 	echo "configuring wem."
 	COOKIE_SECRET=$(openssl rand -base64 32)
 
-	wem_conf=/etc/wem/wem.conf
+	wem_conf=/etc/edb/wem/wem.conf
 
 	count=$(su -l ${ADMIN} -c "psql -tAc \"SELECT COUNT(*) FROM pg_database WHERE datname='wem'\"")
 	if [ "${count}" -eq "0" ]; then
