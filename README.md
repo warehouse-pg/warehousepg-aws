@@ -151,7 +151,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 | 2. Fill out the parameters | | 
 | - `Stack name` | This is mandatory. |
 | **Deployment Scripts** | |
-| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use aws `s3 sync userdata s3://<bucketname>/userdata_classic/` and `aws s3 sync notebooks s3://<bucketname>/notebooks/`   |
+| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use aws `s3 sync userdata_classic s3://<bucketname>/userdata_classic/` and `aws s3 sync notebooks s3://<bucketname>/notebooks/`   |
 | **WarehousePG Configuration** | |
 | - `AccessToken` | The EDB access token for downloading EDB software. |
 | - `DatabaseName` | The name of the default database (PGDATABASE) created. |
@@ -195,7 +195,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 | 2. Fill out the parameters | | 
 | - `Stack name` | This is mandatory. |
 | **Deployment Scripts** | |
-| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use aws `s3 sync userdata s3://<bucketname>/userdata_classic/` and `aws s3 sync notebooks s3://<bucketname>/notebooks/`   |
+| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use aws `s3 sync userdata_classic s3://<bucketname>/userdata_classic/` and `aws s3 sync notebooks s3://<bucketname>/notebooks/`   |
 | **WarehousePG Configuration** | | 
 | - `AccessToken` | The EDB access token for downloading EDB software. |
 | - `DatabaseName` | The name of the default database (PGDATABASE) created. |
