@@ -1,6 +1,5 @@
 #!/bin/bash
-#set -e
-
+set -e
 INSTALL_DIR="/opt/edb/warehousepg"
 
 CONFIG_FILE="config.sh"

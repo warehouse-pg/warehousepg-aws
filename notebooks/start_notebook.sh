@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+########
+## NOTE: This script is only needed when you wish to use Jupyter Notebook demos for a Stack that didn't use the InstallDemos option
+########
+
 if [ "${USER}" == "root" ]; then
 	echo "ERROR: Do not execute this script as root. it is recommended to use gpadmin."
 	exit 1
@@ -23,7 +27,7 @@ source ~/jupyter_env/bin/activate
 
 #install python packages
 pip install --upgrade pip
-pip install notebook pandas psycopg2-binary matplotlib pypmml geopandas sqlalchemy pandas seaborn jupysql psycopg
+pip install notebook pandas psycopg2-binary matplotlib pypmml geopandas sqlalchemy pandas seaborn jupysql psycopg datasets ipywidgets streamlit
 
 #start background process
 nohup jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.token='' --NotebookApp.password='' > ~/jupyter.log 2>&1 &

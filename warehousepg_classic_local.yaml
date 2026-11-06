@@ -13,12 +13,16 @@ Outputs:
   WEMPassword:
     Value: !Select [3, !Split ['"', !GetAtt WEMPasswordOutput.Data]]
     Description: WarehousePG Enterprise Manager temporary password
-  CoordinatorPublicIp: 
+  CoordinatorPublicIp:
     Description: Public IP of the coordinator
     Value: !GetAtt CoordinatorNode.PublicIp
-  CoordinatorPrivateIp: 
+  CoordinatorPrivateIp:
     Description: Private IP of the coordinator
     Value: !GetAtt CoordinatorNode.PrivateIp
+  DemoJupyterNode:
+    Description: URL for Jupyter Notebook to run demos.
+    Value: !Sub "http://${CoordinatorNode.PublicIp}:8888"
+    Condition: Demos
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -32,6 +36,7 @@ Metadata:
         Parameters:
           - AccessToken
           - DatabaseName
+          - InstallDemos
       - Label:
           default: Compute
         Parameters:
@@ -44,7 +49,7 @@ Metadata:
           default: Network
         Parameters:
           - InternetAccess
-          - SSHCIDR
+          - CIDR
           - VPC
           - PrivateSubnet
           - PublicSubnet
@@ -67,13 +72,13 @@ Parameters:
       - 'True'
       - 'False'
 
-  SSHCIDR:
+  CIDR:
     Type: String
     Description: >-
-      The CIDR range to allow SSH access. You can use 0.0.0.0/0 to allow all
-      or a more restrictive range. This is only used if you enable
-      InternetAccess and it is only applied to the SecurityGroup created for
-      the PublicSubnet specified.
+      The CIDR range to allow SSH, WarehousePG Enterprise Manager, and optionally Demo notebooks access.
+      You can use 0.0.0.0/0 to allow all or a more restrictive range. This is
+      only used if you enable InternetAccess and it is only applied to the
+      SecurityGroup created for the PublicSubnet specified.
     AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
     ConstraintDescription: Must be a valid CIDR range.
 
@@ -151,6 +156,19 @@ Parameters:
     ConstraintDescription: >-
       Must be at least 3 characters long, lower case, start with a letter, and
       contain only letters and numbers.
+
+  InstallDemos:
+    Type: String
+    Description: >-
+      Install Jupyter Notebook with sample Notebooks for demo purposes only! Do not use
+      this option for a production environment. Jupyter Notebook will be configured
+      without requiring authentication and available to all IP addresses specified in
+      the CIDR range. Notebooks copied from this repository to your S3Bucket will also be
+      placed in the admin gpadmin home directory.
+    Default: 'False'
+    AllowedValues:
+      - 'True'
+      - 'False'
 
   NodeType:
     Type: String
@@ -250,6 +268,9 @@ Mappings:
 
 Conditions:
   PublicIP: !Equals [!Ref InternetAccess, 'True']
+  Demos: !And
+    - !Equals [!Ref InternetAccess, 'True']
+    - !Equals [!Ref InstallDemos, 'True' ]
   MultiNodes: !Not [!Equals [!Ref SegmentNodeCount, '0']]
 
 Resources:
@@ -305,8 +326,6 @@ Resources:
             Action:
               - sts:AssumeRole
       Path: /
-
-
       Policies:
         - PolicyName: DescribeAccessEC2andCFN
           PolicyDocument:
@@ -407,7 +426,7 @@ Resources:
       IpProtocol: tcp
       FromPort: 22
       ToPort: 22
-      CidrIp: !Ref SSHCIDR
+      CidrIp: !Ref CIDR
 
   PublicSecurityGroupWEM:
     Type: AWS::EC2::SecurityGroupIngress
@@ -418,7 +437,18 @@ Resources:
       IpProtocol: tcp
       FromPort: 8080
       ToPort: 8080
-      CidrIp: !Ref SSHCIDR
+      CidrIp: !Ref CIDR
+
+  PublicSecurityGroupDemos:
+    Type: AWS::EC2::SecurityGroupIngress
+    Condition: Demos
+    Properties:
+      Description: Jupyter Notebooks for demos access
+      GroupId: !Ref PublicSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8888
+      ToPort: 8888
+      CidrIp: !Ref CIDR
 
   PrivateSecurityGroupPing:
     Type: AWS::EC2::SecurityGroupIngress
@@ -488,7 +518,7 @@ Resources:
                 #!/bin/bash
                 PATH+=":/usr/local/bin"
                 export PATH
-                mkdir -p /opt/edb/warehousepg
+                mkdir -p /opt/edb/warehousepg/notebooks
                 echo 'STACK="${AWS::StackName}"' >> /opt/edb/warehousepg/config.sh
                 echo 'COORDINATOR_HOST_IND="1"' >> /opt/edb/warehousepg/config.sh
                 echo 'TIMEZONE="${TimeZone}"' >> /opt/edb/warehousepg/config.sh
@@ -501,6 +531,7 @@ Resources:
                 echo 'ADMIN_KEYPAIR_ID="${AdminKeyPairId}"' >> /opt/edb/warehousepg/config.sh
                 echo 'WEM_URL_SIGNAL="${WEMURLHandle}"' >> /opt/edb/warehousepg/config.sh
                 echo 'WEM_PASSWORD_SIGNAL="${WEMPasswordHandle}"' >> /opt/edb/warehousepg/config.sh
+                echo 'INSTALL_DEMOS="${InstallDemos}"' >> /opt/edb/warehousepg/config.sh
                 #need newer aws cli version for s3files
                 #dnf install awscli -y
                 curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /opt/edb/warehousepg/awscliv2.zip
@@ -509,7 +540,8 @@ Resources:
                 unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
                 /opt/edb/warehousepg/aws/install
                 echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
-                aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
+                aws s3 sync s3://${S3Bucket}/userdata_classic/ /opt/edb/warehousepg/
+                aws s3 sync s3://${S3Bucket}/notebooks/ /opt/edb/warehousepg/notebooks/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
@@ -587,7 +619,7 @@ Resources:
                 unzip /opt/edb/warehousepg/awscliv2.zip -d /opt/edb/warehousepg/
                 /opt/edb/warehousepg/aws/install
                 echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
-                aws s3 sync s3://${S3Bucket}/warehousepg/aws/ /opt/edb/warehousepg/
+                aws s3 sync s3://${S3Bucket}/userdata_classic/ /opt/edb/warehousepg/
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
@@ -612,4 +644,3 @@ Resources:
           Tags:
             - Key: Name
               Value: !Ref AWS::StackName
-

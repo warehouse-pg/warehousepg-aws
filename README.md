@@ -106,10 +106,11 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 | 2. Fill out the parameters  | |
 | - `Stack name` | This is mandatory. |
 | **Deployment Scripts** | |
-| - `DeploymentBucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata/` directory to this location. Use the `upload.sh` script to place the files in your bucket. |
+| - `DeploymentBucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata/` directory to this location. Use aws `s3 sync userdata s3://<bucketname>/userdata/` and `aws s3 sync notebooks s3://<bucketname>/notebooks/`   |
 | **WarehousePG Configuration** | |
 | - `AccessToken` | The EDB access token for downloading EDB software. |
 | - `DatabaseName` | The name of the default database (PGDATABASE) created. |
+| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only not secured. |
 | **Compute** | | 
 | - `NodeType` | Specifies the instance type in AWS. The instance type has a local SSD drive for caching. |
 | - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
@@ -150,10 +151,11 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 | 2. Fill out the parameters | | 
 | - `Stack name` | This is mandatory. |
 | **Deployment Scripts** | |
-| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use the `upload.sh` script to place the files in your bucket. |
+| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use aws `s3 sync userdata s3://<bucketname>/userdata_classic/` and `aws s3 sync notebooks s3://<bucketname>/notebooks/`   |
 | **WarehousePG Configuration** | |
 | - `AccessToken` | The EDB access token for downloading EDB software. |
 | - `DatabaseName` | The name of the default database (PGDATABASE) created. |
+| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only not secured. |
 | **Compute** | | 
 | - `NodeType` | Specifies the instance type in AWS. This instance type uses local storage. |
 | - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
@@ -193,10 +195,11 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 | 2. Fill out the parameters | | 
 | - `Stack name` | This is mandatory. |
 | **Deployment Scripts** | |
-| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use the `upload.sh` script to place the files in your bucket. |
+| - `S3Bucket` | Name of the bucket where your deployment scripts are. Upload the files in this repo's `userdata_classic/` directory to this location. Use aws `s3 sync userdata s3://<bucketname>/userdata_classic/` and `aws s3 sync notebooks s3://<bucketname>/notebooks/`   |
 | **WarehousePG Configuration** | | 
 | - `AccessToken` | The EDB access token for downloading EDB software. |
 | - `DatabaseName` | The name of the default database (PGDATABASE) created. |
+| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only not secured. |
 | **Compute** | |
 | - `NodeType` | Specifies the instance type in AWS. This instance type uses EBS storage only. |
 | - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
