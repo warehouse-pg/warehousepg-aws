@@ -110,7 +110,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 | **WarehousePG Configuration** | |
 | - `AccessToken` | The EDB access token for downloading EDB software. |
 | - `DatabaseName` | The name of the default database (PGDATABASE) created. |
-| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only not secured. |
+| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only! This is not secured. |
 | **Compute** | | 
 | - `NodeType` | Specifies the instance type in AWS. The instance type has a local SSD drive for caching. |
 | - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
@@ -155,7 +155,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 | **WarehousePG Configuration** | |
 | - `AccessToken` | The EDB access token for downloading EDB software. |
 | - `DatabaseName` | The name of the default database (PGDATABASE) created. |
-| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only not secured. |
+| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only! This is not secured. |
 | **Compute** | | 
 | - `NodeType` | Specifies the instance type in AWS. This instance type uses local storage. |
 | - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
@@ -199,7 +199,7 @@ Deploys a WarehousePG cluster on AWS into an existing VPC using AWS CloudFormati
 | **WarehousePG Configuration** | | 
 | - `AccessToken` | The EDB access token for downloading EDB software. |
 | - `DatabaseName` | The name of the default database (PGDATABASE) created. |
-| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only not secured. |
+| - `InstallDemos` | Indicator to install Jupyter Notebook on Coordinator node and copy sample Notebooks too. This is for demo purposes only! This is not secured. |
 | **Compute** | |
 | - `NodeType` | Specifies the instance type in AWS. This instance type uses EBS storage only. |
 | - `SegmentNodeCount` | 0 to 48 nodes, in increments of 2, can be deployed. Setting 0 means it will be a single node where the coordinator and segments reside together. Setting 2 or larger enables mirroring and deploys across all nodes. |
