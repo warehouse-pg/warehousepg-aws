@@ -7,9 +7,11 @@ source ${INSTALL_DIR}/${CONFIG_FILE}
 
 copy_files()
 {
-	mkdir -p /home/${ADMIN}/notebooks
-	cp -r /opt/edb/warehousepg/notebooks/. /home/${ADMIN}/notebooks/
-	chown -R ${ADMIN}:${ADMIN} /home/${ADMIN}/notebooks
+	cp -R ${INSTALL_DIR}/notebooks/. /home/${ADMIN}/
+	chown ${ADMIN}:${ADMIN} /home/${ADMIN}/*.ipynb
+	mkdir -p /tmp/pgfs
+	cp -R ${INSTALL_DIR}/pgfs/. /tmp/pgfs/
+	chown -R ${ADMIN}:${ADMIN} /tmp/pgfs
 }
 setup_python_env()
 {
@@ -29,7 +31,7 @@ create_service()
 	echo "Type=simple" >> /etc/systemd/system/jupyter.service
 	echo "User=${ADMIN}" >> /etc/systemd/system/jupyter.service
 	echo "WorkingDirectory=/home/${ADMIN}" >> /etc/systemd/system/jupyter.service
-	echo "ExecStart=/home/${ADMIN}/jupyter_env/bin/jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --IdentityProvider.token=" >> /etc/systemd/system/jupyter.service
+	echo "ExecStart=/bin/bash -ic 'exec /home/gpadmin/jupyter_env/bin/jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --IdentityProvider.token='" >> /etc/systemd/system/jupyter.service
 	echo "Restart=on-failure" >> /etc/systemd/system/jupyter.service
 	echo "" >> /etc/systemd/system/jupyter.service
 	echo "[Install]" >> /etc/systemd/system/jupyter.service
