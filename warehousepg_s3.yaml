@@ -928,8 +928,8 @@ Resources:
                 /opt/edb/warehousepg/aws/install
                 echo "export PATH=/usr/local/bin:\$PATH" >> /root/.bashrc
                 aws s3 sync s3://${DeploymentBucket}/userdata/ /opt/edb/warehousepg/
-                aws s3 sync s3://${S3Bucket}/notebooks/ /opt/edb/warehousepg/notebooks/ || true
-                aws s3 sync s3://${S3Bucket}/pgfs/ /opt/edb/warehousepg/pgfs/ || true
+                aws s3 sync s3://${DeploymentBucket}/notebooks/ /opt/edb/warehousepg/notebooks/ || true
+                aws s3 sync s3://${DeploymentBucket}/pgfs/ /opt/edb/warehousepg/pgfs/ || true
                 chmod 755 /opt/edb/warehousepg/*.sh
                 for i in $(ls /opt/edb/warehousepg/0*.sh); do ${!i}; done
               - Admin: !FindInMap [ReleaseMapping, UserInfo, Admin]
